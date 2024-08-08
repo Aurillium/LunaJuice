@@ -1,0 +1,6 @@
+{
+  "dependencies": [
+    "detours"
+  ],
+  "builtin-baseline": "b8ac6696e3af59f4f0666ab81a48ae589cde00a8"
+}
