@@ -2,11 +2,9 @@
 #include "pch.h"
 // Kernel and advapi32
 #include <Windows.h>
-//#include <aclapi.h>
 #include <securitybaseapi.h>
 // Others
 #include <ntstatus.h>
-#include <detours.h>
 #include <iostream>
 
 #include <userenv.h>
@@ -14,20 +12,7 @@
 #include <psapi.h>
 #include <dbghelp.h>
 
-// Mimikatz globals
-//#include <ntstatus.h>
-//#define WIN32_NO_STATUS
-//#define SECURITY_WIN32
-//#define CINTERFACE
-//#define COBJMACROS
-//#include <windows.h>
-//#include <sspi.h>
-//#include <sddl.h>
 #include <wincred.h>
-//#include <ntsecapi.h>
-//#include <ntsecpkg.h>
-//#include <stdio.h>
-//#include <wchar.h>
 
 // Debug logs
 void LogLine(const char* message) {
@@ -41,9 +26,12 @@ void Log(const char* message) {
 #endif
 }
 
+// Macro to make hooking easier
+// Make sure you follow the naming format though!
+// Hooked_{name}, Real_{name}
 #define QUICK_HOOK(dll, name) (InstallHookV2(dll, #name, (void*)Hooked_##name, (void*)Real_##name))
 
-// Based on Mimikatz usage
+// Based on Mimikatz usage (signature is from source)
 extern "C" NTSTATUS WINAPI RtlAdjustPrivilege(IN ULONG Privilege, IN BOOL Enable, IN BOOL CurrentThread, OUT PULONG pPreviousState);
 
 // Good code
@@ -72,8 +60,7 @@ static BOOL __stdcall Hooked_AdjustTokenPrivileges(HANDLE TokenHandle, BOOL Disa
 }
 static NTSTATUS WINAPI Hooked_RtlAdjustPrivilege(IN ULONG Privilege, IN BOOL Enable, IN BOOL CurrentThread, OUT PULONG pPreviousState) {
     std::cout << "Faked sucessful escalation!" << std::endl;
-    // No permissions
-    return 0xC0000061; // https://joyasystems.com/list-of-ntstatus-codes
+    return 0xC0000061; // Permission denied
     // Success
     return 0;
 }
@@ -92,7 +79,8 @@ BOOL WINAPI Hooked_ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesT
     return result;
 }
 
-// REMOVE LATER
+// For testing purposes only
+#if _DEBUG
 typedef BOOL(WINAPI* MessageBoxA_t)(HWND, LPCSTR, LPCSTR, UINT);
 static MessageBoxA_t Real_MessageBoxA = MessageBoxA;
 BOOL WINAPI Hooked_MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)
@@ -103,48 +91,59 @@ BOOL WINAPI Hooked_MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
     BOOL result = Real_MessageBoxA(hWnd, "Hooked Function", lpCaption, uType);
     return result;
 }
-
+#endif
 
 
 // This may need improvement, unsure on stability
-bool InstallHookV2(LPCSTR moduleName, LPCSTR functionName, void* hookFunction, void* originalFunction) {
-    // Get module handle
+bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void* originalFunction) {
     HMODULE hModule = GetModuleHandle(NULL);
     if (hModule == NULL) {
         LogLine("Failed to get module handle");
         return false;
     }
 
-    // ?????
-    // I think we're getting a handle on the module's exports
+    // Get a handle on program imports
     ULONG size;
     PIMAGE_IMPORT_DESCRIPTOR importDesc = (PIMAGE_IMPORT_DESCRIPTOR)ImageDirectoryEntryToData(hModule, TRUE, IMAGE_DIRECTORY_ENTRY_IMPORT, &size);
+    // We need this to access DLL info
     if (importDesc == NULL) {
         LogLine("Failed to get import descriptor");
         return false;
     }
 
-    // Loop through all exports of the selected DLL?
+    // Loop through each import
     while (importDesc->Name) {
         // Construct the module name
         const char* modName = (const char*)((BYTE*)hModule + importDesc->Name);
-        // Check if we have the export we want to hook
+        // Check if we have the library we want to hook into
+        // This is case insensitive
         if (_stricmp(modName, moduleName) == 0) {
             // ?????????
             // https://stackoverflow.com/questions/2641489/what-is-a-thunk
+            // This is where the magic happens
+            // Unfortunately, I do not fully understand the magic yet
+            // Here is where we find our function though
             PIMAGE_THUNK_DATA thunk = (PIMAGE_THUNK_DATA)((BYTE*)hModule + importDesc->FirstThunk);
             while (thunk->u1.Function) {
                 FARPROC* pfn = (FARPROC*)&thunk->u1.Function;
                 FARPROC fn = (FARPROC)GetProcAddress(GetModuleHandleA(moduleName), functionName);
+
+                // Is this our function?
                 if (fn == (FARPROC)*pfn) {
+                    // Now we hook
+
+                    // Unprotect the memory containing the function address and save the old protection
                     DWORD oldProtect;
                     VirtualProtect(pfn, sizeof(FARPROC), PAGE_EXECUTE_READWRITE, &oldProtect);
 
-                    // ORIGINAL
+                    // Save original
                     originalFunction = *pfn;
-
+                    // Set function address to our function
                     *pfn = (FARPROC)hookFunction;
+                    // Reapply page protection
                     VirtualProtect(pfn, sizeof(FARPROC), oldProtect, &oldProtect);
+
+                    // Let the user know we succeeded
                     Log("Successfully hooked ");
                     LogLine(functionName);
                     return true;
@@ -155,19 +154,24 @@ bool InstallHookV2(LPCSTR moduleName, LPCSTR functionName, void* hookFunction, v
         importDesc++;
     }
 
+    // :(
     Log("Failed to hook ");
     LogLine(functionName);
     return false;
 }
 
+// Install the hooks
 void InstallHooksV2() {
+#if _DEBUG
     QUICK_HOOK("user32.dll", MessageBoxA);
+#endif
     QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
     QUICK_HOOK("kernel32.dll", WriteFile);
     QUICK_HOOK("kernel32.dll", ReadFile);
     QUICK_HOOK("advapi32.dll", AdjustTokenPrivileges);
 }
 
+// This code is run on injection
 __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) {
     switch (ul_reason_for_call)
     {
@@ -176,6 +180,7 @@ __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_fo
         InstallHooksV2();
         break;
     case DLL_THREAD_ATTACH:
+        // These logs are quite verbose, so commented out even for testing by default
         //LogLine("Attached to thread");
         break;
     case DLL_THREAD_DETACH:
