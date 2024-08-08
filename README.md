@@ -23,4 +23,9 @@ For our extracurricular activities at Seamless while we're ahead
 
 ## Lachlan's Notes
 
-(Insert your notes here)
+Recommended file structure
+- (root)
+    - LunaJuice:    smart action
+    - LunaLib:      payload
+    - LunaRhythm:   reports logs to LogRhythm
+
