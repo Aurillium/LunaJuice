@@ -1,24 +1,99 @@
-﻿namespace LunaRhythm {
+﻿using System;
+using System.Diagnostics;
+
+namespace LunaRhythm {
     public class LunaRhythm
     {
         public static readonly string NAME = "LunaRhythm";
         public static readonly string VERSION = "0.0.1";
+        public static readonly bool   VERBOSE = false;
+        public static bool Enabled { get; set; } = false;
 
         public static void Main(string[] args)
         {
-            new LunaRhythm().StartCLI();
+            LunaRhythm prog = new LunaRhythm();
+            prog.Initialize();
+            prog.StartCLI();
         }
 
         public LunaRhythm() {}
+
+        private EventWriter? eventWriter;
+
+        public void Initialize()
+        {
+            if (Enabled)
+            {
+                throw new InvalidOperationException("Program already enabled");
+            }
+
+            Enabled = true;
+            eventWriter = new EventWriter(this);
+        }
 
         public void StartCLI()
         {
             new CLI().Start();
         }
+
+        public void ProcessEvent(string data)
+        {
+            if(!Enabled)
+            {
+                throw new InvaldOperationException("Program is disabled");
+            }
+
+            if(eventWriter != null)
+            {
+                throw new InvalidOperationException("Event writer not available");
+            }
+
+            eventWriter!.WriteEvent(data);
+        }
+    }
+
+    public class EventWriter
+    {
+        public EventWriter(LunaRhythm prog) {
+            this.prog = prog;
+        }
+
+        LunaRhythm? prog = null;
+
+        public void Initialize()
+        {
+            if(prog == null || !LunaRhythm.Enabled)
+            {
+                throw new InvalidOperationException("Program is disabled");
+            }
+
+            CreateEventSource_IfNotExists();
+        }
+
+        private void CreateEventSource_IfNotExists()
+        {
+            if(EventLog.SourceExists("LunaRhythm"))
+            {
+                CLI.Debug("EventWriter", "Event source already exists.");
+                return;
+            }
+
+            // Create an Event Source named LunaRhythm for
+            // Application category logs.
+            EventLog.CreateEventSource("LunaRhythm", "Application");
+            CLI.Debug("EventWriter", "Event source created.");
+        }
+
+        public void WriteEvent(string data)
+        {
+            //TODO
+        }
     }
 
     public class CLI
     {
+        public static bool EnableDebug { get; set; } = false;
+
         public CLI() {}
 
         public void Start()
@@ -167,6 +242,15 @@
         public static void Critical(object obj)
         {
             Log("CRITICAL", ConsoleColor.Red, obj);
+        }
+
+        public static void Debug(string category, object obj)
+        {
+            if(!EnableDebug) {
+                return;
+            }
+
+            Log("DEBUG: " + category, ConsoleColor.Green, obj);
         }
     }
 }
