@@ -14,6 +14,8 @@
 
 #include <wincred.h>
 
+#include "hooks.h"
+
 // Debug logs
 void LogLine(const char* message) {
 #if _DEBUG
@@ -25,74 +27,6 @@ void Log(const char* message) {
     std::cerr << message;
 #endif
 }
-
-// Macro to make hooking easier
-// Make sure you follow the naming format though!
-// Hooked_{name}, Real_{name}
-#define QUICK_HOOK(dll, name) (InstallHookV2(dll, #name, (void*)Hooked_##name, (void*)Real_##name))
-
-// Based on Mimikatz usage (signature is from source)
-extern "C" NTSTATUS WINAPI RtlAdjustPrivilege(IN ULONG Privilege, IN BOOL Enable, IN BOOL CurrentThread, OUT PULONG pPreviousState);
-
-// Good code
-typedef BOOL(__stdcall* WriteFile_t)(HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED);
-// Priv adjust
-typedef BOOL(__stdcall* AdjustTokenPrivileges_t)(HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, PDWORD);
-typedef NTSTATUS(__stdcall* RtlAdjustPrivilege_t)(IN ULONG, IN BOOL, IN BOOL, OUT PULONG);
-//typedef DWORD(__stdcall* ZwAdjustPrivilegeToken_t)();
-
-static WriteFile_t Real_WriteFile = WriteFile;
-static AdjustTokenPrivileges_t Real_AdjustTokenPrivileges = AdjustTokenPrivileges;
-static RtlAdjustPrivilege_t Real_RtlAdjustPrivilege = RtlAdjustPrivilege;
-//static ZwAdjustPrivilegeToken_t Real_ZwAdjustPrivilegeToken = ZwAdjustPrivilegeToken;
-// Need to work out params ^^^
-
-// Does not get called
-static BOOL __stdcall Hooked_WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped) {
-    // Redirect file writes or modify behavior here
-    std::cout << "File Write Hooked!" << std::endl;
-    return Real_WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped);
-}
-static BOOL __stdcall Hooked_AdjustTokenPrivileges(HANDLE TokenHandle, BOOL DisableAllPrivileges, PTOKEN_PRIVILEGES NewState, DWORD BufferLength, PTOKEN_PRIVILEGES PreviousState, PDWORD ReturnLength) {
-    // Redirect file writes or modify behavior here
-    std::cout << "Token adjust hooked!" << std::endl;
-    return Real_AdjustTokenPrivileges(TokenHandle, DisableAllPrivileges, NewState, BufferLength, PreviousState, ReturnLength);
-}
-static NTSTATUS WINAPI Hooked_RtlAdjustPrivilege(IN ULONG Privilege, IN BOOL Enable, IN BOOL CurrentThread, OUT PULONG pPreviousState) {
-    std::cout << "Faked sucessful escalation!" << std::endl;
-    return 0xC0000061; // Permission denied
-    // Success
-    return 0;
-}
-
-typedef BOOL(__stdcall* ReadFile_t)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
-static ReadFile_t Real_ReadFile = ReadFile;
-BOOL WINAPI Hooked_ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped) {
-    BOOL result = Real_ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
-    if (/*hFile == GetStdHandle(STD_INPUT_HANDLE)*/true) {
-        Log("Read ");
-#if _DEBUG
-        std::cout << lpNumberOfBytesRead;
-#endif
-        LogLine(" from stdin");
-    }
-    return result;
-}
-
-// For testing purposes only
-#if _DEBUG
-typedef BOOL(WINAPI* MessageBoxA_t)(HWND, LPCSTR, LPCSTR, UINT);
-static MessageBoxA_t Real_MessageBoxA = MessageBoxA;
-BOOL WINAPI Hooked_MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)
-{
-    std::cout << "Intercepted MessageBoxA called!" << std::endl;
-    std::cout << "Text: " << lpText << std::endl;
-    std::cout << "Caption: " << lpCaption << std::endl;
-    BOOL result = Real_MessageBoxA(hWnd, "Hooked Function", lpCaption, uType);
-    return result;
-}
-#endif
-
 
 // This may need improvement, unsure on stability
 bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void* originalFunction) {
@@ -165,10 +99,31 @@ void InstallHooksV2() {
 #if _DEBUG
     QUICK_HOOK("user32.dll", MessageBoxA);
 #endif
+    // Testing for now
     QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
     QUICK_HOOK("kernel32.dll", WriteFile);
     QUICK_HOOK("kernel32.dll", ReadFile);
-    QUICK_HOOK("advapi32.dll", AdjustTokenPrivileges);
+    QUICK_HOOK("ntdll.dll", NtReadFile);
+
+    // Privilege adjust
+    QUICK_HOOK("kernel32.dll", AdjustTokenPrivileges);
+    QUICK_HOOK("ntdll.dll", ZwAdjustPrivilegesToken);
+    QUICK_HOOK("ntdll.dll", NtAdjustPrivilegesToken);
+
+    // Remote processes
+    QUICK_HOOK("kernel32.dll", OpenProcess);
+    QUICK_HOOK("kernel32.dll", CreateRemoteThread);
+    QUICK_HOOK("kernel32.dll", CreateRemoteThreadEx);
+    QUICK_HOOK("kernel32.dll", WriteProcessMemory);
+    QUICK_HOOK("kernel32.dll", ReadProcessMemory);
+
+    // Process start
+    QUICK_HOOK("kernel32.dll", CreateProcessW);
+    QUICK_HOOK("kernel32.dll", CreateProcessA);
+
+    //QUICK_HOOK("msvcrt.dll", fgets);
+    //QUICK_HOOK("msvcrt.dll", fgetws);
+    //QUICK_HOOK("msvcrt.dll", _read);
 }
 
 // This code is run on injection
