@@ -8,7 +8,7 @@
 // Macro to make hooking easier
 // Make sure you follow the naming format though!
 // Hooked_{name}, Real_{name}
-#define QUICK_HOOK(dll, name) (InstallHookV2(dll, #name, (void*)Hooked_##name, (void*)Real_##name))
+#define QUICK_HOOK(dll, name) (InstallHookV3(dll, #name, (void*)Hooked_##name, (void*)Real_##name))
 
 // Quickly define hooks
 // Example:
