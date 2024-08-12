@@ -8,6 +8,8 @@
 
 - https://joyasystems.com/list-of-ntstatus-codes
   - NTSTATUS codes, useful for spoofing error codes
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/using-nt-and-zw-versions-of-the-native-system-services-routines
+  - Nt and Zw API calls
 
 ## FOR LATER
 
