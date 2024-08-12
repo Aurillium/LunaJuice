@@ -54,4 +54,8 @@ Other fields populated as relevant
 
 ## Lachlan's Notes
 
-(Insert your notes here)
+Recommended file structure
+- (root)
+    - LunaJuice:    smart action
+    - LunaLib:      payload
+    - LunaRhythm:   reports logs to LogRhythm
