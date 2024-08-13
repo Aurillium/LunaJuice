@@ -23,6 +23,7 @@ BOOL WINAPI Hooked_WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfByte
     return Real_WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped);
 }
 BOOL WINAPI Hooked_ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped) {
+    std::cout << "Reading bytes: ";
     BOOL result = Real_ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
     if (/*hFile == GetStdHandle(STD_INPUT_HANDLE)*/true) {
 #if _DEBUG
@@ -97,6 +98,8 @@ NTSTATUS NTAPI Hooked_NtReadFile(
     IN ULONG                Length,
     IN PLARGE_INTEGER       ByteOffset OPTIONAL,
     IN PULONG               Key OPTIONAL) {
+    std::cout << "Reading ntbytes: ";
+    std::cout << "Real NtReadFile:      " << (void*)Real_NtReadFile << "   ";
     return Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
 }
 

@@ -97,45 +97,52 @@ bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
 
 // Trampoline hooking
 // More advanced than IAT but more stable (in theory)
-bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void* originalFunction) {
+bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void** originalFunction) {
+    // Get the DLL the function is from
     HMODULE hModule = GetModuleHandleA(moduleName);
     if (hModule == NULL) {
-        LogLine("Failed to get module handle");
+        Log("Failed to get module handle, failed to hook ");
+        LogLine(functionName);
         return false;
     }
 
-    LogLine("Got module handle.");
-
+    // Get target function address
     void* targetFunctionAddress = GetProcAddress(hModule, functionName);
     if (targetFunctionAddress == NULL) {
-        LogLine("Could not find target function.");
+        Log("Could not find target function, failed to hook ");
+        LogLine(functionName);
         return false;
     }
 
-    LogLine("Got target address.");
+    // Set up trampoline
+    void* trampoline = VirtualAlloc(NULL, 14 + 14 + 10, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (trampoline == NULL) {
+        Log("Could not allocate trampoline, failed to hook ");
+        LogLine(functionName);
+        return false;
+    }
+    // Copy first 14 bytes of function into beginning of trampoline
+    memcpy(trampoline, targetFunctionAddress, 14);
 
-    // 14 should be enough space for a JMP
-    BYTE originalBytes[14];
-    memcpy(originalBytes, targetFunctionAddress, 14);
-
-    // Setup trampoline
-    void* trampoline = VirtualAlloc(NULL, 14 + 14, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-    memcpy(trampoline, originalBytes, 14);
-
-    // Add the jmp after first 14 bytes
+    // Address of after the first 14 bytes (these are in trampoline)
     uintptr_t trampolineJmpBackAddr = (uintptr_t)targetFunctionAddress + 14;
+    // Add the jump after original first 14 bytes
     *(BYTE*)((BYTE*)trampoline + 14) = 0xFF;            // jmp setup
     *(BYTE*)((BYTE*)trampoline + 15) = 0x25;
     *(DWORD*)((BYTE*)trampoline + 16) = 0x00000000;     // end jmp setup
     *(uintptr_t*)((BYTE*)trampoline + 20) = trampolineJmpBackAddr;
 
+    // Overwrite memory protection so we can write jump to hook
+    DWORD oldProtect;
+    if (!VirtualProtect(targetFunctionAddress, 14, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+        Log("Could change memory protection, failed to hook ");
+        LogLine(functionName);
+        return false;
+    }
+
     // Get address of hook
     uintptr_t hookFuncAddr = (uintptr_t)hookFunction;
-    // Overwrite memory protection so we can write jump
-    DWORD oldProtect;
-    VirtualProtect(targetFunctionAddress, 14, PAGE_EXECUTE_READWRITE, &oldProtect);
-
-    // Write the jump towards hook function
+    // Write the jump towards hook function where the first 14 bytes used to be
     *(BYTE*)targetFunctionAddress = 0x48;                 // mov rax, hookfunc
     *(BYTE*)((BYTE*)targetFunctionAddress + 1) = 0xB8;
     *(uintptr_t*)((BYTE*)targetFunctionAddress + 2) = hookFuncAddr;
@@ -143,10 +150,29 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
     *(BYTE*)((BYTE*)targetFunctionAddress + 11) = 0xE0;
 
     // Rewrite old protections
-    VirtualProtect(targetFunctionAddress, 14, oldProtect, &oldProtect);
+    if (!VirtualProtect(targetFunctionAddress, 14, oldProtect, &oldProtect)) {
+        Log("Could restore memory protection, failed to hook ");
+        LogLine(functionName);
+        return false;
+    }
 
-    // Send trampoline back as the hooked function
-    hookFunction = trampoline;
+    // Send trampoline back as the original function
+    *originalFunction = trampoline;
+
+#if _DEBUG
+    std::cout << "Hook function:        " << hookFunction << std::endl;
+    std::cout << "Original function:    " << *originalFunction << std::endl;
+    std::cout << "Trampoline address:   " << trampoline << std::endl;
+    std::cout << "Real NtReadFile:      " << (void*)Real_NtReadFile << std::endl;
+    std::cout << "Trampoline[20...]:    " << (void*)*(uintptr_t*)((BYTE*)trampoline + 20) << std::endl;
+    std::cout << "Target function addr: " << targetFunctionAddress << std::endl;
+    std::cout << "First jmp to:         " << (void*)*(uintptr_t*)((BYTE*)targetFunctionAddress + 2) << std::endl;
+#endif
+
+    // Real equals the target address, should equal trampoline -- this is because global variable is not changed (why?)
+
+    Log("Successfully hooked ");
+    LogLine(functionName);
 }
 
 
@@ -181,6 +207,8 @@ void InstallHooksV2() {
     //QUICK_HOOK("msvcrt.dll", fgets);
     //QUICK_HOOK("msvcrt.dll", fgetws);
     //QUICK_HOOK("msvcrt.dll", _read);
+
+    std::cout << (void*)Real_NtReadFile << std::endl;
 }
 
 // This code is run on injection

@@ -8,19 +8,19 @@
 // Macro to make hooking easier
 // Make sure you follow the naming format though!
 // Hooked_{name}, Real_{name}
-#define QUICK_HOOK(dll, name) (InstallHookV3(dll, #name, (void*)Hooked_##name, (void*)Real_##name))
+#define QUICK_HOOK(dll, name) (InstallHookV3(dll, #name, (void*)Hooked_##name, (void**)&Real_##name))
 
 // Quickly define hooks
 // Example:
 // typedef BOOL(WINAPI* MessageBoxA_t)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType);
 // static MessageBoxA_t Real_MessageBoxA = MessageBoxA;
-// static BOOL WINAPI Hooked_MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType);
+// BOOL WINAPI Hooked_MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType);
 //
 // Becomes:
 // HOOKDEF(MessageBoxA, BOOL, WINAPI, (HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType));
 #define HOOKDEF(name, calltype, ret, sig) \
 typedef ret(calltype* name##_t)sig; \
-static name##_t Real_##name = name; \
+static name##_t Real_##name; \
 ret calltype Hooked_##name##sig;
 
 // For testing purposes only
