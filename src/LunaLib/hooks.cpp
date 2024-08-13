@@ -98,9 +98,10 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN ULONG                Length,
     IN PLARGE_INTEGER       ByteOffset OPTIONAL,
     IN PULONG               Key OPTIONAL)) {
-    std::cout << "Reading ntbytes: ";
-    std::cout << "Real NtReadFile:      " << (void*)Real_NtReadFile << "   ";
-    return Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+    std::cout << "(hooked) ";
+    NTSTATUS result = Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+    printf("DATA: %s", (char*)Buffer);
+    return result;
 }
 
 // Open process

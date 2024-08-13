@@ -33,7 +33,7 @@ void Log(const char* message) {
 }
 
 // This may need improvement, unsure on stability
-bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void* originalFunction) {
+bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void** originalFunction) {
     HMODULE hModule = GetModuleHandle(NULL);
     if (hModule == NULL) {
         LogLine("Failed to get module handle");
@@ -75,7 +75,7 @@ bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
                     VirtualProtect(pfn, sizeof(FARPROC), PAGE_EXECUTE_READWRITE, &oldProtect);
 
                     // Save original
-                    originalFunction = *pfn;
+                    *originalFunction = *pfn;
                     // Set function address to our function
                     *pfn = (FARPROC)hookFunction;
                     // Reapply page protection
@@ -100,12 +100,13 @@ bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
 
 
 // Function to determine the prologue length
-size_t GetFunctionPrologueLength(void* functionAddress) {
+size_t GetFunctionPrologueLength(IN void* functionAddress) {
     csh handle;
     cs_insn* insn;
     size_t count;
     size_t prologueLength = 0;
     const size_t MAX_INSTRUCTIONS = 14; // Limit to prevent excessive disassembly
+    const size_t MIN_BYTES = 14;
 
     // Initialize Capstone
     if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
@@ -120,13 +121,60 @@ size_t GetFunctionPrologueLength(void* functionAddress) {
         // Example condition: terminate on a specific instruction or byte pattern
         for (size_t i = 0; i < count; i++) {
             prologueLength += insn[i].size;
-            // Check for end of prologue condition if needed
+            // Exit early if we have enough bytes to create trampoline
+            if (prologueLength >= MIN_BYTES) {
+                break;
+            }
         }
         cs_free(insn, count);
     }
     cs_close(&handle);
 
     return prologueLength;
+}
+
+uintptr_t AdjustRelativeAddress(uintptr_t originalAddress, uintptr_t oldBase, uintptr_t newBase, int64_t displacement) {
+    uintptr_t absoluteTarget = originalAddress + displacement;
+    return (absoluteTarget - newBase);
+}
+
+// TODO
+// This will correct any issues associated with relative memory
+BOOL SmartTrampoline(IN void* functionAddress, IN size_t prologueLength, IN void* trampoline) {
+    csh handle;
+    cs_insn* insn;
+    size_t count;
+    const size_t MAX_INSTRUCTIONS = 14; // Limit to prevent excessive disassembly
+    const size_t MIN_BYTES = 14;
+
+    // Initialize Capstone
+    if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
+        return 0;
+        // TODO: Error handling
+    }
+
+    count = cs_disasm(handle, (const uint8_t*)functionAddress, 64, (uint64_t)functionAddress, prologueLength, &insn);
+    if (count > 0) {
+        for (size_t i = 0; i < count; i++) {
+            cs_insn* instruction = &insn[i];
+
+            if (instruction->id == X86_INS_JMP || instruction->id == X86_INS_CALL /*|| instruction->id == X86_CALL*/) {
+                // Here we need to account for
+                // - addresses within the trampoline going to other addresses within the trampoline
+                // - addresses within the trampoline going outside the trampoline
+                // - addresses outside the trampoline going inside the trampoline
+                //   - May want to process entire function
+
+                // Why do we subtract the instruction address then add it back later?
+                int64_t displacement = instruction->detail->x86.operands[0].imm;// -instruction->address;
+                uintptr_t newDisplacement = AdjustRelativeAddress(instruction->address, (uintptr_t)functionAddress, (uintptr_t)trampoline, displacement);
+
+                // Modify the trampoline's instruction with the new displacement
+                uintptr_t offset = (uintptr_t)trampoline + (instruction->address - (uintptr_t)functionAddress);
+                *(int32_t*)(offset + 1) = newDisplacement;
+            }
+        }
+    }
 }
 
 // Trampoline hooking
@@ -195,6 +243,10 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
     *originalFunction = trampoline;
 
 #if _DEBUG
+    // Debug info
+    // NtReadFile is an example and function of interest
+    std::cout << "----------------------" << std::endl;
+    std::cout << "Function:             " << functionName << std::endl;
     std::cout << "Hook function:        " << hookFunction << std::endl;
     std::cout << "Original function:    " << *originalFunction << std::endl;
     std::cout << "Trampoline address:   " << trampoline << std::endl;
@@ -202,6 +254,7 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
     std::cout << "Trampoline[20...]:    " << (void*)*(uintptr_t*)((BYTE*)trampoline + 20) << std::endl;
     std::cout << "Target function addr: " << targetFunctionAddress << std::endl;
     std::cout << "First jmp to:         " << (void*)*(uintptr_t*)((BYTE*)targetFunctionAddress + 2) << std::endl;
+    std::cout << "----------------------" << std::endl;
 #endif
 
     // Real equals the target address, should equal trampoline -- this is because global variable is not changed (why?)
@@ -213,7 +266,7 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
 
 
 // Install the hooks
-void InstallHooksV2() {
+void InstallHooks() {
 #if _DEBUG
     EXTERN_HOOK(MessageBoxA);
     QUICK_HOOK("user32.dll", MessageBoxA);
@@ -226,7 +279,7 @@ void InstallHooksV2() {
     QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
     QUICK_HOOK("kernel32.dll", WriteFile);
     //QUICK_HOOK("kernel32.dll", ReadFile);
-    QUICK_HOOK("ntdll.dll", NtReadFile);
+    QUICK_HOOK_V3("ntdll.dll", NtReadFile);
 
     // Privilege adjust
     EXTERN_HOOK(AdjustTokenPrivileges);
@@ -267,7 +320,7 @@ __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_fo
     {
     case DLL_PROCESS_ATTACH:
         LogLine("Attached to process");
-        InstallHooksV2();
+        InstallHooks();
         break;
     case DLL_THREAD_ATTACH:
         // These logs are quite verbose, so commented out even for testing by default
