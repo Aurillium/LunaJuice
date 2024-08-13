@@ -16,6 +16,10 @@
 
 #include "hooks.h"
 
+#include "include/capstone/capstone.h"
+
+EXTERN_HOOK(NtReadFile);
+
 // Debug logs
 void LogLine(const char* message) {
 #if _DEBUG
@@ -95,6 +99,36 @@ bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
 }
 
 
+// Function to determine the prologue length
+size_t GetFunctionPrologueLength(void* functionAddress) {
+    csh handle;
+    cs_insn* insn;
+    size_t count;
+    size_t prologueLength = 0;
+    const size_t MAX_INSTRUCTIONS = 14; // Limit to prevent excessive disassembly
+
+    // Initialize Capstone
+    if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
+        return 0;
+        // TODO: Error handling
+    }
+
+    // Disassemble the function
+    count = cs_disasm(handle, (const uint8_t*)functionAddress, 64, (uint64_t)functionAddress, MAX_INSTRUCTIONS, &insn);
+    if (count > 0) {
+        // Determine the prologue length (commonly includes setup instructions like PUSH, MOV, etc.)
+        // Example condition: terminate on a specific instruction or byte pattern
+        for (size_t i = 0; i < count; i++) {
+            prologueLength += insn[i].size;
+            // Check for end of prologue condition if needed
+        }
+        cs_free(insn, count);
+    }
+    cs_close(&handle);
+
+    return prologueLength;
+}
+
 // Trampoline hooking
 // More advanced than IAT but more stable (in theory)
 bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void** originalFunction) {
@@ -115,22 +149,23 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
     }
 
     // Set up trampoline
-    void* trampoline = VirtualAlloc(NULL, 14 + 14 + 10, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    size_t prologueLength = GetFunctionPrologueLength(targetFunctionAddress);
+    void* trampoline = VirtualAlloc(NULL, prologueLength + 14, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (trampoline == NULL) {
         Log("Could not allocate trampoline, failed to hook ");
         LogLine(functionName);
         return false;
     }
     // Copy first 14 bytes of function into beginning of trampoline
-    memcpy(trampoline, targetFunctionAddress, 14);
+    memcpy(trampoline, targetFunctionAddress, prologueLength);
 
     // Address of after the first 14 bytes (these are in trampoline)
     uintptr_t trampolineJmpBackAddr = (uintptr_t)targetFunctionAddress + 14;
     // Add the jump after original first 14 bytes
-    *(BYTE*)((BYTE*)trampoline + 14) = 0xFF;            // jmp setup
-    *(BYTE*)((BYTE*)trampoline + 15) = 0x25;
-    *(DWORD*)((BYTE*)trampoline + 16) = 0x00000000;     // end jmp setup
-    *(uintptr_t*)((BYTE*)trampoline + 20) = trampolineJmpBackAddr;
+    *(BYTE*)((BYTE*)trampoline + prologueLength) = 0xFF;            // jmp setup
+    *(BYTE*)((BYTE*)trampoline + prologueLength + 1) = 0x25;
+    *(DWORD*)((BYTE*)trampoline + prologueLength + 2) = 0x00000000;     // end jmp setup
+    *(uintptr_t*)((BYTE*)trampoline + prologueLength + 6) = trampolineJmpBackAddr;
 
     // Overwrite memory protection so we can write jump to hook
     DWORD oldProtect;
@@ -180,20 +215,33 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
 // Install the hooks
 void InstallHooksV2() {
 #if _DEBUG
+    EXTERN_HOOK(MessageBoxA);
     QUICK_HOOK("user32.dll", MessageBoxA);
 #endif
     // Testing for now
+    EXTERN_HOOK(RtlAdjustPrivilege);
+    EXTERN_HOOK(WriteFile);
+    EXTERN_HOOK(ReadFile);
+    //EXTERN_HOOK(NtReadFile);
     QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
     QUICK_HOOK("kernel32.dll", WriteFile);
-    QUICK_HOOK("kernel32.dll", ReadFile);
+    //QUICK_HOOK("kernel32.dll", ReadFile);
     QUICK_HOOK("ntdll.dll", NtReadFile);
 
     // Privilege adjust
-    QUICK_HOOK("kernel32.dll", AdjustTokenPrivileges);
+    EXTERN_HOOK(AdjustTokenPrivileges);
+    EXTERN_HOOK(ZwAdjustPrivilegesToken);
+    EXTERN_HOOK(NtAdjustPrivilegesToken);
+    QUICK_HOOK("kernelbase.dll", AdjustTokenPrivileges);
     QUICK_HOOK("ntdll.dll", ZwAdjustPrivilegesToken);
     QUICK_HOOK("ntdll.dll", NtAdjustPrivilegesToken);
 
     // Remote processes
+    EXTERN_HOOK(OpenProcess);
+    EXTERN_HOOK(CreateRemoteThread);
+    EXTERN_HOOK(CreateRemoteThreadEx);
+    EXTERN_HOOK(WriteProcessMemory);
+    EXTERN_HOOK(ReadProcessMemory);
     QUICK_HOOK("kernel32.dll", OpenProcess);
     QUICK_HOOK("kernel32.dll", CreateRemoteThread);
     QUICK_HOOK("kernel32.dll", CreateRemoteThreadEx);
@@ -201,6 +249,8 @@ void InstallHooksV2() {
     QUICK_HOOK("kernel32.dll", ReadProcessMemory);
 
     // Process start
+    EXTERN_HOOK(CreateProcessW);
+    EXTERN_HOOK(CreateProcessA);
     QUICK_HOOK("kernel32.dll", CreateProcessW);
     QUICK_HOOK("kernel32.dll", CreateProcessA);
 
