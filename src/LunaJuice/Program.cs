@@ -1,11 +1,7 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
-using System.IO;
 using System.Reflection;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using System.Reflection.Metadata;
 
 // In retrospect, this is really just a C++ program written in C#
 // It should probably be written again in C++ at some point
@@ -332,16 +328,32 @@ class Program
 
     static void Main(string[] args)
     {
+        int targetProcessId = 0;
         if (args.Length != 1)
         {
             Console.WriteLine("Usage: DropPrivileges <ProcessId>");
+#if DEBUG
+            // Mimikatz for now
+            Console.WriteLine("No arguments, attempting to inject to Mimikatz for debug.");
+            Process[] processes = Process.GetProcessesByName("mimikatz");
+            if (processes.Length > 0) {
+                targetProcessId = processes[0].Id;
+                Console.WriteLine("Press any key to inject to Mimikatz...");
+                Console.ReadKey();
+            } else {
+                Console.WriteLine("Mimikatz not found.");
+                return;
+            }
+#else
             return;
+#endif
+        } else {
+            targetProcessId = int.Parse(args[0]);
         }
 
         Console.WriteLine("Obtaining debug privilege...");
         EnableDebugPrivilege();
 
-        int targetProcessId = int.Parse(args[0]);
         Console.WriteLine("Dropping all privileges...");
         DropAllPrivileges(targetProcessId);
         Console.WriteLine("Injecting monitor DLL...");
