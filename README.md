@@ -51,11 +51,13 @@ Other fields populated as relevant
 ## Memphis's Notes (LunaJuice)
 
 - Try not to touch LunaJuice for now, there's a lot going on and a lot that could randomly break it
+- Add functions to change tracking dynamically
 
 ## Lachlan's Notes
 
 Recommended file structure
+
 - (root)
-    - LunaJuice:    smart action
-    - LunaLib:      payload
-    - LunaRhythm:   reports logs to LogRhythm
+  - LunaJuice:    smart action
+  - LunaLib:      payload
+  - LunaRhythm:   reports logs to LogRhythm

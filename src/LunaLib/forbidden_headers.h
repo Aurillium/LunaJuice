@@ -66,6 +66,17 @@ extern "C" NTSYSAPI NTSTATUS NTAPI ZwReadFile(
 	IN ULONG                Length,
 	IN PLARGE_INTEGER       ByteOffset OPTIONAL,
 	IN PULONG               Key OPTIONAL);
+extern "C" NTSYSAPI NTSTATUS NtWriteFile(
+    IN HANDLE               FileHandle,
+    IN HANDLE               Event OPTIONAL,
+    IN PIO_APC_ROUTINE      ApcRoutine OPTIONAL,
+    IN PVOID                ApcContext OPTIONAL,
+    OUT PIO_STATUS_BLOCK    IoStatusBlock,
+    IN PVOID                Buffer,
+    IN ULONG                Length,
+    IN PLARGE_INTEGER       ByteOffset OPTIONAL,
+    IN PULONG               Key OPTIONAL
+);
 
 // Process creation
 // https://captmeelo.com/redteam/maldev/2022/05/10/ntcreateuserprocess.html

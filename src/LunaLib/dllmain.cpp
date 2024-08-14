@@ -4,17 +4,12 @@
 #include <Windows.h>
 #include <securitybaseapi.h>
 // Others
-#include <ntstatus.h>
 #include <iostream>
 
-#include <userenv.h>
-
-#include <psapi.h>
 #include <dbghelp.h>
 
-#include <wincred.h>
-
 #include "hooks.h"
+#include "events.h"
 
 #include "include/capstone/capstone.h"
 
@@ -229,13 +224,12 @@ void InstallHooks() {
 #endif
     // Testing for now
     EXTERN_HOOK(RtlAdjustPrivilege);
-    EXTERN_HOOK(WriteFile);
-    EXTERN_HOOK(ReadFile);
     //EXTERN_HOOK(NtReadFile);
     QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
-    QUICK_HOOK("kernel32.dll", WriteFile);
-    //QUICK_HOOK("kernel32.dll", ReadFile);
+
+    //EXTERN_HOOK(NtWriteFile);
     QUICK_HOOK_V3("ntdll.dll", NtReadFile);
+    //QUICK_HOOK_V3("ntdll.dll", NtWriteFile);
 
     // Privilege adjust
     EXTERN_HOOK(AdjustTokenPrivileges);
@@ -276,7 +270,10 @@ __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_fo
     {
     case DLL_PROCESS_ATTACH:
         LogLine("Attached to process");
+        OpenLogger();
+        LogLine("Started logger!");
         InstallHooks();
+        LogLine("Installed hooks!");
         break;
     case DLL_THREAD_ATTACH:
         // These logs are quite verbose, so commented out even for testing by default
@@ -286,7 +283,9 @@ __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_fo
         //LogLine("Detached from thread");
         break;
     case DLL_PROCESS_DETACH:
-        LogLine("Detached from process");
+        LogLine("Detaching from process");
+        CloseLogger();
+        LogLine("Closed logger!");
         break;
     }
     return TRUE;
