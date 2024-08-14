@@ -9,6 +9,7 @@
 // Make sure you follow the naming format though!
 // Hooked_{name}, Real_{name}
 #define QUICK_HOOK_V3(dll, name) (InstallHookV3(dll, #name, (void*)Hooked_##name, (void**)&Real_##name))
+#define QUICK_HOOK_V2(dll, name) (InstallHookV2(dll, #name, (void*)Hooked_##name, (void**)&Real_##name))
 // This is more stable than V3, so keep it the default
 #define QUICK_HOOK(dll, name) (InstallHookV2(dll, #name, (void*)Hooked_##name, (void**)&Real_##name))
 #define EXTERN_HOOK(name) extern name##_t Real_##name;
