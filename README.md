@@ -1,4 +1,4 @@
-# Seamless Extracurricular Activities
+# Seamless Extracurricular Activities (LunaJuice)
 
 For our extracurricular activities at Seamless while we're ahead
 
@@ -51,11 +51,19 @@ Other fields populated as relevant
 ## Memphis's Notes (LunaJuice)
 
 - Try not to touch LunaJuice for now, there's a lot going on and a lot that could randomly break it
+### Goals
+- Limit debug outputs to when debugging mode is active
+- Add a mode to the DLL to watch but not affect any functionality
+- Add a mode to the injector to not drop privileges
+- Function logging regardless of argument type
+- Process tree persistence (lowest priority)
+- Control functions to change tracking dynamically (lowest priority)
 
 ## Lachlan's Notes
 
 Recommended file structure
+
 - (root)
-    - LunaJuice:    smart action
-    - LunaLib:      payload
-    - LunaRhythm:   reports logs to LogRhythm
+  - LunaJuice:    smart action
+  - LunaLib:      payload
+  - LunaRhythm:   reports logs to LogRhythm

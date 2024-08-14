@@ -17,7 +17,6 @@
 // Quickly define hooks
 // Example:
 // typedef BOOL(WINAPI* MessageBoxA_t)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType);
-// //static MessageBoxA_t Real_MessageBoxA = MessageBoxA;
 // BOOL WINAPI Hooked_MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType);
 //
 // Becomes:
@@ -41,6 +40,7 @@ HOOKHEAD(MessageBoxA, WINAPI, BOOL, (HWND, LPCSTR, LPCSTR, UINT));
 HOOKHEAD(WriteFile, WINAPI, BOOL, (HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED))
 HOOKHEAD(ReadFile, WINAPI, BOOL, (HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED))
 HOOKHEAD(NtReadFile, NTAPI, NTSTATUS, (HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext, PIO_STATUS_BLOCK, PVOID Buffer, ULONG Length, PLARGE_INTEGER ByteOffset, PULONG Key))
+HOOKHEAD(NtWriteFile, NTAPI, NTSTATUS, (IN HANDLE FileHandle, IN HANDLE Event OPTIONAL, IN PIO_APC_ROUTINE ApcRoutine OPTIONAL, IN PVOID ApcContext OPTIONAL, OUT PIO_STATUS_BLOCK IoStatusBlock, IN PVOID Buffer, IN ULONG Length, IN PLARGE_INTEGER ByteOffset OPTIONAL, IN PULONG Key OPTIONAL))
 //HOOKHEAD(fgets, __cdecl, char*, (char* str, int numChars, FILE* stream))
 //HOOKHEAD(fgetws, __cdecl, wchar_t*, (wchar_t* str, int numChars, FILE* stream))
 //HOOKHEAD(_read, __cdecl, int, (int const fd, void* const buffer, unsigned const buffer_size))
