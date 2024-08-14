@@ -145,7 +145,6 @@
     <ClInclude Include="forbidden_headers.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="hooks.h" />
-    <ClInclude Include="include\MinHook.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>

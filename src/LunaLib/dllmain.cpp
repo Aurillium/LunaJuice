@@ -209,7 +209,7 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
     memcpy(trampoline, targetFunctionAddress, prologueLength);
 
     // Address of after the first 14 bytes (these are in trampoline)
-    uintptr_t trampolineJmpBackAddr = (uintptr_t)targetFunctionAddress + 14;
+    uintptr_t trampolineJmpBackAddr = (uintptr_t)targetFunctionAddress + prologueLength;
     // Add the jump after original first 14 bytes
     *(BYTE*)((BYTE*)trampoline + prologueLength) = 0xFF;            // jmp setup
     *(BYTE*)((BYTE*)trampoline + prologueLength + 1) = 0x25;

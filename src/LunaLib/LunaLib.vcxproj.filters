@@ -27,9 +27,6 @@
     <ClInclude Include="hooks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\MinHook.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
