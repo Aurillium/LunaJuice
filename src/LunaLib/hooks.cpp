@@ -1,9 +1,9 @@
 #include "pch.h"
-#include <Windows.h>
 #include <iostream>
 #include <wincred.h>
 
 #include "hooks.h"
+#include "events.h"
 
 #if _DEBUG
 HOOKDEF(MessageBoxA, WINAPI, BOOL, (HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType))
@@ -98,10 +98,42 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN ULONG                Length,
     IN PLARGE_INTEGER       ByteOffset OPTIONAL,
     IN PULONG               Key OPTIONAL)) {
-    std::cout << "(hooked) ";
-    NTSTATUS result = Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
-    printf("DATA: %s", (char*)Buffer);
-    return result;
+    if (FileHandle == GetStdHandle(STD_INPUT_HANDLE)) {
+        std::cout << "(hooked) ";
+        NTSTATUS result = Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+        printf("DATA: %s", (char*)Buffer);
+        LogStdin((LPCSTR)Buffer);
+        return result;
+    }
+    else {
+        return Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+    }
+}
+
+HOOKDEF(NtWriteFile, NTAPI, NTSTATUS, (
+    IN  HANDLE           FileHandle,
+    IN  HANDLE           Event OPTIONAL,
+    IN  PIO_APC_ROUTINE  ApcRoutine OPTIONAL,
+    IN  PVOID            ApcContext OPTIONAL,
+    OUT PIO_STATUS_BLOCK IoStatusBlock,
+    IN  PVOID            Buffer,
+    IN  ULONG            Length,
+    IN  PLARGE_INTEGER   ByteOffset OPTIONAL,
+    IN  PULONG           Key OPTIONAL)) {
+    if (FileHandle == GetStdHandle(STD_OUTPUT_HANDLE)) {
+        std::cout << "(hooked) ";
+        NTSTATUS result = Real_NtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+        printf("STDOUT DATA: %s", (char*)Buffer);
+        LogStdout((LPCSTR)Buffer);
+        return result;
+    } else if (FileHandle == GetStdHandle(STD_ERROR_HANDLE)) {
+        NTSTATUS result = Real_NtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+        printf("STDERR DATA: %s", (char*)Buffer);
+        LogStderr((LPCSTR)Buffer);
+        return result;
+    } else {
+        return Real_NtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+    }
 }
 
 // Open process
