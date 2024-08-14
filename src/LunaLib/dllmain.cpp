@@ -99,6 +99,7 @@ bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
 }
 
 
+
 // Function to determine the prologue length
 size_t GetFunctionPrologueLength(IN void* functionAddress) {
     csh handle;
@@ -131,6 +132,50 @@ size_t GetFunctionPrologueLength(IN void* functionAddress) {
     cs_close(&handle);
 
     return prologueLength;
+}
+
+uintptr_t AdjustRelativeAddress(uintptr_t originalAddress, uintptr_t oldBase, uintptr_t newBase, int64_t displacement) {
+    uintptr_t absoluteTarget = originalAddress + displacement;
+    return (absoluteTarget - newBase);
+}
+
+// TODO
+// This will correct any issues associated with relative memory
+BOOL SmartTrampoline(IN void* functionAddress, IN size_t prologueLength, IN void* trampoline) {
+    csh handle;
+    cs_insn* insn;
+    size_t count;
+    const size_t MAX_INSTRUCTIONS = 14; // Limit to prevent excessive disassembly
+    const size_t MIN_BYTES = 14;
+
+    // Initialize Capstone
+    if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
+        return 0;
+        // TODO: Error handling
+    }
+
+    count = cs_disasm(handle, (const uint8_t*)functionAddress, 64, (uint64_t)functionAddress, prologueLength, &insn);
+    if (count > 0) {
+        for (size_t i = 0; i < count; i++) {
+            cs_insn* instruction = &insn[i];
+
+            if (instruction->id == X86_INS_JMP || instruction->id == X86_INS_CALL /*|| instruction->id == X86_CALL*/) {
+                // Here we need to account for
+                // - addresses within the trampoline going to other addresses within the trampoline
+                // - addresses within the trampoline going outside the trampoline
+                // - addresses outside the trampoline going inside the trampoline
+                //   - May want to process entire function
+
+                // Why do we subtract the instruction address then add it back later?
+                int64_t displacement = instruction->detail->x86.operands[0].imm;// -instruction->address;
+                uintptr_t newDisplacement = AdjustRelativeAddress(instruction->address, (uintptr_t)functionAddress, (uintptr_t)trampoline, displacement);
+
+                // Modify the trampoline's instruction with the new displacement
+                uintptr_t offset = (uintptr_t)trampoline + (instruction->address - (uintptr_t)functionAddress);
+                *(int32_t*)(offset + 1) = newDisplacement;
+            }
+        }
+    }
 }
 
 // Trampoline hooking
