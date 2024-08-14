@@ -15,6 +15,7 @@
 #include <wincred.h>
 
 #include "hooks.h"
+#include "debug.h"
 
 #include "include/capstone/capstone.h"
 
