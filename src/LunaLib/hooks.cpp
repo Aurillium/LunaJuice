@@ -28,47 +28,10 @@ HOOKDEF(ReadFile, WINAPI, BOOL, (HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfB
     WRITE_DEBUG("Reading bytes: ");
     BOOL result = Real_ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
     if (/*hFile == GetStdHandle(STD_INPUT_HANDLE)*/true) {
-#if _DEBUG
         WRITELINE_DEBUG("Read " << lpNumberOfBytesRead << " from stdin");
-#endif
     }
     return result;
 }
-/*char* Hooked_fgets(char* str, int numChars, FILE* stream) {
-    WRITELINE_DEBUG("Intercept fgets");
-    return Real_fgets(str, numChars, stream);
-}
-wchar_t* __cdecl Hooked_fgetws(wchar_t* str, int numChars, FILE* stream) {
-    WRITELINE_DEBUG(1;
-    wchar_t *buffer = (wchar_t*)calloc(numChars + 1, sizeof(wchar_t));
-    WRITELINE_DEBUG(2;
-    int fd = _fileno(stream);
-    WRITELINE_DEBUG(3;
-    size_t result = fread(buffer, sizeof(wchar_t), numChars, stream);
-    WRITELINE_DEBUG(4;
-
-    memcpy_s(str, numChars, buffer, numChars);
-    WRITELINE_DEBUG(5;
-    return str;
-
-    /*WRITELINE_DEBUG("Intercept fgetws");
-    WRITELINE_DEBUG(str);
-    wprintf(L"%ls\n", str);
-    WRITELINE_DEBUG(_msize(str));
-    Real_fgetws(str, numChars, stream);
-    wchar_t* string = (wchar_t*)malloc(8);
-    string[0] = 's'; string[1] = 'u'; string[2] = 's';
-    return string;* /
-    //return Real_fgetws(str, numChars, stream);
-}*/
-/*int Hooked__read(
-    int const fd,
-    void* const buffer,
-    unsigned const buffer_size
-) {
-    WRITELINE_DEBUG("Hooked _read");
-    return Real__read(fd, buffer, buffer_size);
-}*/
 
 // Privilege adjust
 HOOKDEF(AdjustTokenPrivileges, __stdcall, BOOL, (HANDLE TokenHandle, BOOL DisableAllPrivileges, PTOKEN_PRIVILEGES NewState, DWORD BufferLength, PTOKEN_PRIVILEGES PreviousState, PDWORD ReturnLength)) {
@@ -103,7 +66,7 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     if (FileHandle == GetStdHandle(STD_INPUT_HANDLE)) {
         WRITE_DEBUG("(hooked) ");
         NTSTATUS result = Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
-        printf("DATA: %s", (char*)Buffer);
+        WRITELINE_DEBUG("DATA: " << (char*)Buffer);
         LogStdin((LPCSTR)Buffer);
         return result;
     }
@@ -125,12 +88,12 @@ HOOKDEF(NtWriteFile, NTAPI, NTSTATUS, (
     if (FileHandle == GetStdHandle(STD_OUTPUT_HANDLE)) {
         WRITE_DEBUG("(hooked) ");
         NTSTATUS result = Real_NtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
-        printf("STDOUT DATA: %s", (char*)Buffer);
+        WRITELINE_DEBUG("STDOUT DATA: " << (char*)Buffer);
         LogStdout((LPCSTR)Buffer);
         return result;
     } else if (FileHandle == GetStdHandle(STD_ERROR_HANDLE)) {
         NTSTATUS result = Real_NtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
-        printf("STDERR DATA: %s", (char*)Buffer);
+        WRITELINE_DEBUG("STDERR DATA: " << (char*)Buffer);
         LogStderr((LPCSTR)Buffer);
         return result;
     } else {
