@@ -52,12 +52,12 @@ Other fields populated as relevant
 
 - Try not to touch LunaJuice for now, there's a lot going on and a lot that could randomly break it
 ### Goals
-- Limit debug outputs to when debugging mode is active
-- Add a mode to the DLL to watch but not affect any functionality
-- Add a mode to the injector to not drop privileges
-- Function logging regardless of argument type
-- Process tree persistence (lowest priority)
-- Control functions to change tracking dynamically (lowest priority)
+- [x] Limit debug outputs to when debugging mode is active
+- [ ] Add a mode to the DLL to watch but not affect any functionality
+- [ ] Add a mode to the injector to not drop privileges
+- [ ] Function logging regardless of argument type
+- [ ] Process tree persistence (lowest priority)
+- [ ] Control functions to change tracking dynamically (lowest priority)
 
 ## Lachlan's Notes
 
