@@ -1,7 +1,7 @@
 #pragma once
 #include <Windows.h>
 
-#define LOG_NAME "LunaLog"
+#define LOG_NAME "LunaJuice"
 
 #if _DEBUG
 #define HANDLE_CLOSED_MESSAGE std::cerr << "Log handle is closed." << std::endl;
