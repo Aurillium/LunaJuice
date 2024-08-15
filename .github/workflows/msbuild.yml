@@ -54,5 +54,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: LunaJuice.exe
-        path: ${{env.SOLUTION_FILE_PATH}}/LunaJuice/bin/Release/net8.0-windows7.0/LunaJuice.exe
+        path: ${{env.SOLUTION_FILE_PATH}}/LunaJuice/bin/Release/net8.0-windows7.0\win-x64\publish\LunaJuice.exe
         retention-days: 7
