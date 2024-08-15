@@ -5,6 +5,7 @@
 #include <iostream>
 #include <tlhelp32.h>
 
+#include "debug.h"
 #include "hooks.h"
 
 // One instance for the whole process ensures efficiency
@@ -54,7 +55,7 @@ static BOOL PopulateDetailFields() {
 	char* parentPathBuffer = (char*)calloc(MAX_PATH + 1, sizeof(char));
 
 	if (pidBuffer == NULL || pathBuffer == NULL || ppidBuffer == NULL || parentPathBuffer == NULL) {
-		std::cerr << "Could not allocate memory for detail fields." << std::endl;
+		WRITELINE_DEBUG("Could not allocate memory for detail fields.");
 		return FALSE;
 	}
 
@@ -70,8 +71,8 @@ static BOOL PopulateDetailFields() {
 	// This should always run before hooking
 #if _DEBUG
 	if (Real_OpenProcess != NULL) {
-		std::cerr << "ASSERTION FAILED: Real_OpenProcess == NULL. Unexpected behaviour will occur (probably a crash on the next line)." << std::endl;
-		std::cerr << "Make sure to hook AFTER this code, or use Real_OpenProcess below." << std::endl;
+		WRITELINE_DEBUG("ASSERTION FAILED: Real_OpenProcess == NULL. Unexpected behaviour will occur (probably a crash on the next line).");
+		WRITELINE_DEBUG("Make sure to hook AFTER this code, or use Real_OpenProcess below.");
 	}
 #endif
 	HANDLE parentHandle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, ppid);
@@ -88,19 +89,19 @@ static BOOL PopulateDetailFields() {
 
 BOOL OpenLogger() {
 	if (LOG_HANDLE != NULL) {
-		std::cerr << "Log handle already registered." << std::endl;
+		WRITELINE_DEBUG("Log handle already registered.");
 		return FALSE;
 	}
 
 	// If this succeeds we definitely have all fields populated
 	if (!PopulateDetailFields()) {
-		std::cerr << "Could not populate details fields." << std::endl;
+		WRITELINE_DEBUG("Could not populate details fields.");
 		return FALSE;
 	}
 
 	LOG_HANDLE = RegisterEventSourceA(NULL, LOG_NAME);
 	if (LOG_HANDLE == NULL) {
-		std::cerr << "Log registration failed. Error: " << GetLastError() << std::endl;
+		WRITELINE_DEBUG("Log registration failed. Error: " << GetLastError());
 		return FALSE;
 	}
 	return TRUE;
@@ -108,12 +109,12 @@ BOOL OpenLogger() {
 
 BOOL CloseLogger() {
 	if (LOG_HANDLE == NULL) {
-		std::cerr << "Log handle already closed." << std::endl;
+		WRITELINE_DEBUG("Log handle already closed.");
 		return FALSE;
 	}
 
 	if (!DeregisterEventSource(LOG_HANDLE)) {
-		std::cerr << "Failed to close log. Error: " << GetLastError() << std::endl;
+		WRITELINE_DEBUG("Failed to close log. Error: " << GetLastError());
 		return FALSE;
 	}
 	LOG_HANDLE = NULL;
@@ -133,14 +134,14 @@ static LPCSTR GetThreadUsername() {
 	char* domainBuffer = (char*)calloc(SECURITY_MAX_SID_SIZE + 1, sizeof(char));
 
 	if (usernameBuffer == NULL || domainBuffer == NULL) {
-		std::cerr << "Could not allocate memory to store username and domain." << std::endl;
+		WRITELINE_DEBUG("Could not allocate memory to store username and domain.");
 		return NULL;
 	}
 
 	// Gets thread token or process token if no thread token
 	HANDLE token = GetCurrentThreadEffectiveToken();
 	if (token == NULL) {
-		std::cerr << "Could not get current token." << std::endl;
+		WRITELINE_DEBUG("Could not get current token.");
 		return NULL;
 	}
 	DWORD tokenUserSize = 0;
@@ -148,18 +149,18 @@ static LPCSTR GetThreadUsername() {
 
 	// There will be an error saying there isn't enough space because we're giving it a null pointer
 	if (!GetTokenInformation(token, TokenUser, nullptr, 0, &tokenUserSize) && GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
-		std::cerr << "Failed to get token user size: " << GetLastError() << std::endl;
+		WRITELINE_DEBUG("Failed to get token user size: " << GetLastError());
 		return NULL;
 	}
 
 	tokenUser = (PTOKEN_USER)malloc(tokenUserSize);
 	if (tokenUser == NULL) {
-		std::cerr << "Failed to allocate space for token user." << std::endl;
+		WRITELINE_DEBUG("Failed to allocate space for token user.");
 		return NULL;
 	}
 
 	if (!GetTokenInformation(token, TokenUser, tokenUser, tokenUserSize, &tokenUserSize)) {
-		std::cerr << "Failed to get token user: " << GetLastError() << std::endl;
+		WRITELINE_DEBUG("Failed to get token user: " << GetLastError());
 		free(tokenUser);
 		return NULL;
 	}
@@ -168,7 +169,7 @@ static LPCSTR GetThreadUsername() {
 	DWORD domainSize = SECURITY_MAX_SID_SIZE;
 	SID_NAME_USE SidType;
 	if (!LookupAccountSidA(nullptr, tokenUser->User.Sid, usernameBuffer, &usernameSize, domainBuffer, &domainSize, &SidType)) {
-		std::cerr << "Failed to lookup SID." << std::endl;
+		WRITELINE_DEBUG("Failed to lookup SID.");
 		free(tokenUser);
 		return NULL;
 	}
@@ -179,7 +180,7 @@ static LPCSTR GetThreadUsername() {
 	DWORD totalSize = usernameLength + domainLength + 2;
 	char* joinedName = (char*)calloc(totalSize, sizeof(char));
 	if (joinedName == NULL) {
-		std::cerr << "Failed to allocate memory to store username." << std::endl;
+		WRITELINE_DEBUG("Failed to allocate memory to store username.");
 		return NULL;
 	}
 	memcpy_s(joinedName, domainLength, domainBuffer, domainLength);
@@ -206,7 +207,7 @@ static LPCSTR* EventBaseArguments(size_t extra) {
 	
 
 	if (pidBuffer == NULL || pathBuffer == NULL || ppidBuffer == NULL || parentPathBuffer == NULL) {
-		std::cerr << "Could not allocate memory to copy details." << std::endl;
+		WRITELINE_DEBUG("Could not allocate memory to copy details.");
 		return NULL;
 	}
 
@@ -218,7 +219,7 @@ static LPCSTR* EventBaseArguments(size_t extra) {
 	// This must be freed later
 	LPCSTR joinedName = GetThreadUsername();
 	if (joinedName == NULL) {
-		std::cerr << "Could not get thread username" << std::endl;
+		WRITELINE_DEBUG("Could not get thread username");
 		return NULL;
 	}
 
@@ -237,12 +238,12 @@ BOOL LogStdin(LPCSTR content) {
 
 	LPCSTR* arguments = EventBaseArguments(1);
 	if (arguments == NULL) {
-		std::cerr << "An error occurred while collecting base arguments." << std::endl;
+		WRITELINE_DEBUG("An error occurred while collecting base arguments.");
 		return FALSE;
 	}
 	arguments[5] = content;
 	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_STANDARD_FILE, MSG_STDIN_READ, NULL, 6, 0, arguments, NULL)) {
-		std::cerr << "Could not send event: " << GetLastError() << std::endl;
+		WRITELINE_DEBUG("Could not send event: " << GetLastError());
 		FreeEventBaseArguments(arguments);
 		return FALSE;
 	}
@@ -255,12 +256,12 @@ BOOL LogStdout(LPCSTR content) {
 
 	LPCSTR* arguments = EventBaseArguments(1);
 	if (arguments == NULL) {
-		std::cerr << "An error occurred while collecting base arguments." << std::endl;
+		WRITELINE_DEBUG("An error occurred while collecting base arguments.");
 		return FALSE;
 	}
 	arguments[5] = content;
 	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_STANDARD_FILE, MSG_STDOUT_WRITE, NULL, 6, 0, arguments, NULL)) {
-		std::cerr << "Could not send event: " << GetLastError() << std::endl;
+		WRITELINE_DEBUG("Could not send event: " << GetLastError());
 		FreeEventBaseArguments(arguments);
 		return FALSE;
 	}
@@ -273,12 +274,12 @@ BOOL LogStderr(LPCSTR content) {
 
 	LPCSTR* arguments = EventBaseArguments(1);
 	if (arguments == NULL) {
-		std::cerr << "An error occurred while collecting base arguments." << std::endl;
+		WRITELINE_DEBUG("An error occurred while collecting base arguments.");
 		return FALSE;
 	}
 	arguments[5] = content;
 	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_STANDARD_FILE, MSG_STDERR_WRITE, NULL, 6, 0, arguments, NULL)) {
-		std::cerr << "Could not send event: " << GetLastError() << std::endl;
+		WRITELINE_DEBUG("Could not send event: " << GetLastError());
 		FreeEventBaseArguments(arguments);
 		return FALSE;
 	}

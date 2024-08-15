@@ -30,6 +30,9 @@
     <ClInclude Include="include\MinHook.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="debug.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="events.h">
       <Filter>Header Files</Filter>
     </ClInclude>
