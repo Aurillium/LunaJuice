@@ -1,57 +1,15 @@
 # Seamless Extracurricular Activities (LunaJuice)
 
-For our extracurricular activities at Seamless while we're ahead
+For our extracurricular activities at Seamless while we're ahead.
 
-## Woo Organisation
+[Documentation goes here](https://github.com/Aurillium/Seamless-Extracurricular/wiki) as updating this file requires a PR and I can't exclude it.
 
-- Keeping both components apart until they're stable is probably a good idea
-  - We need to work out a log format so you can parse and I can log
-- Injection Component (LunaJuice)
-  - Memphis working on
-  - LunaJuice is the smart action
-  - LunaLib is the payload
-  - Both of these may be renamed because LunaLib feels like it could be better but LunaJuice is and will stay the overall name of the system
-- LogRhythm Component
-  - Sends logs from event viewer to LogRhythm
-  - That's all I have to say for now to be honest
-- Repo structure
-  - Probably a folder for LunaJuice and a folder for the LogRhythm integration
-- Further discussion for everything probably a good idea
+## TODO
 
-## Log Data
+### Memphis
 
-### Contains
-
-- Process ID
-
-- Process Name
-
-- Parent PID
-
-- Parent Process Name
-
-- Vendor Message ID (Function call? Stdin?)
-
-- Object Type (VMI in English)
-
-- Object Name (Function name / file name)
-
-- Object (Relevant info)
-
-- Response Code (Success or error, return code etc)
-
-- Status (Status of LunaLib)
-
-- Details (Specific arguments)
-
-- Result (Specific return values / number of bytes)
-
-Other fields populated as relevant
-
-## Memphis's Notes (LunaJuice)
-
-- Try not to touch LunaJuice for now, there's a lot going on and a lot that could randomly break it
-### Goals
+- [x] Integrate with event viewer
+- [x] LogRhythm MPE rules
 - [x] Limit debug outputs to when debugging mode is active
 - [ ] Add a mode to the DLL to watch but not affect any functionality
 - [ ] Add a mode to the injector to not drop privileges
@@ -59,11 +17,5 @@ Other fields populated as relevant
 - [ ] Process tree persistence (lowest priority)
 - [ ] Control functions to change tracking dynamically (lowest priority)
 
-## Lachlan's Notes
+### Lachlan
 
-Recommended file structure
-
-- (root)
-  - LunaJuice:    smart action
-  - LunaLib:      payload
-  - LunaRhythm:   reports logs to LogRhythm
