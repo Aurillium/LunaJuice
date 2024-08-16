@@ -15,6 +15,13 @@ LPCSTR PID;
 LPCSTR PPID;
 LPCSTR PATH;
 LPCSTR PARENT_PATH;
+DWORD PPID_INT;
+
+CONST LPCSTR GetOwnPath() { return PATH; }
+CONST LPCSTR GetOwnPid() { return PID; }
+CONST LPCSTR GetParentPath() { return PARENT_PATH; }
+CONST LPCSTR GetParentPid() { return PPID; }
+CONST DWORD GetParentPidInt() { return PPID_INT; }
 
 #define DEFAULT_ARGS 5
 
@@ -67,6 +74,7 @@ static BOOL PopulateDetailFields() {
 
 	DWORD ppid = GetParentProcessId(pid);
 	sprintf_s(ppidBuffer, 11, "%d", ppid);
+	PPID_INT = ppid;
 
 	// This should always run before hooking
 #if _DEBUG
@@ -283,6 +291,53 @@ BOOL LogStderr(LPCSTR content) {
 		FreeEventBaseArguments(arguments);
 		return FALSE;
 	}
+	FreeEventBaseArguments(arguments);
+	return TRUE;
+}
+
+BOOL LogParentSpoof(DWORD fakeParent, LPCSTR image, LPCSTR parameters, DWORD pid) {
+	LPCSTR* arguments = EventBaseArguments(4);
+	arguments[5] = image;
+	arguments[6] = (LPCSTR)calloc(11, sizeof(char));
+	if (arguments[6] == NULL) {
+		WRITELINE_DEBUG("Could not send event: could not allocate buffer for new PID.");
+		return FALSE;
+	}
+	sprintf_s((char*)arguments[6], 11, "%d", pid);
+	arguments[7] = parameters;
+	arguments[8] = (LPCSTR)calloc(11, sizeof(char));
+	if (arguments[8] == NULL) {
+		WRITELINE_DEBUG("Could not send event: could not allocate buffer for fake parent PID.");
+		return FALSE;
+	}
+	sprintf_s((char*)arguments[8], 11, "%d", fakeParent);
+
+	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_PROCESS, MSG_SPOOFED_PROCESS, NULL, 9, 0, arguments, NULL)) {
+		WRITELINE_DEBUG("Could not send event: " << GetLastError());
+		FreeEventBaseArguments(arguments);
+		return FALSE;
+	}
+
+	FreeEventBaseArguments(arguments);
+	return TRUE;
+}
+BOOL LogProcessCreate(LPCSTR image, LPCSTR parameters, DWORD pid) {
+	LPCSTR* arguments = EventBaseArguments(4);
+	arguments[5] = image;
+	arguments[6] = (LPCSTR)calloc(11, sizeof(char));
+	if (arguments[6] == NULL) {
+		WRITELINE_DEBUG("Could not send event: could not allocate buffer for new PID.");
+		return FALSE;
+	}
+	sprintf_s((char*)arguments[6], 11, "%d", pid);
+	arguments[7] = parameters;
+
+	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_PROCESS, MSG_SPAWN_PROCESS, NULL, 8, 0, arguments, NULL)) {
+		WRITELINE_DEBUG("Could not send event: " << GetLastError());
+		FreeEventBaseArguments(arguments);
+		return FALSE;
+	}
+
 	FreeEventBaseArguments(arguments);
 	return TRUE;
 }

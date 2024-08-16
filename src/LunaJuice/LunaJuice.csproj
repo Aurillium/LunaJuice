@@ -17,8 +17,4 @@
     <EmbeddedResource Include="embed\LunaLib.dll" />
   </ItemGroup>
 
-  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="if $(ConfigurationName) == Debug (&#xD;&#xA;    echo Copying debug mode LunaLib...&#xD;&#xA;    copy /Y &quot;$(ProjectDir)..\x64\Debug\LunaLib.dll&quot; &quot;$(ProjectDir)embed\LunaLib.dll&quot;&#xD;&#xA;) else (&#xD;&#xA;    echo Copying release mode LunaLib...&#xD;&#xA;    copy /Y &quot;$(ProjectDir)..\x64\Release\LunaLib.dll&quot; &quot;$(ProjectDir)embed\LunaLib.dll&quot;&#xD;&#xA;)" />
-  </Target>
-
 </Project>

@@ -242,6 +242,8 @@ void InstallHooks() {
     EXTERN_HOOK(CreateProcessA);
     QUICK_HOOK("kernel32.dll", CreateProcessW);
     QUICK_HOOK("kernel32.dll", CreateProcessA);
+    EXTERN_HOOK(NtCreateUserProcess);
+    QUICK_HOOK_V3("ntdll.dll", NtCreateUserProcess);
 
     //QUICK_HOOK("msvcrt.dll", fgets);
     //QUICK_HOOK("msvcrt.dll", fgetws);

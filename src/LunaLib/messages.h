@@ -64,6 +64,15 @@
 //
 #define CAT_FUNCTION_CALL                ((WORD)0x00000002L)
 
+//
+// MessageId: CAT_PROCESS
+//
+// MessageText:
+//
+// Process-Related Event
+//
+#define CAT_PROCESS                      ((WORD)0x00000003L)
+
  // The following are the message definitions.
  // 1 = PID
  // 2 = Path
@@ -105,4 +114,22 @@
 // %1 (%2, as %3 from %4 at %5) ran function: %6(%7) -> %8.
 //
 #define MSG_FUNCTION_CALL                ((DWORD)0x40000103L)
+
+//
+// MessageId: MSG_SPOOFED_PROCESS
+//
+// MessageText:
+//
+// %1 (%2, as %3 from %4 at %5) ran %6 with PID %7; parameters %8 (fake parent %9).
+//
+#define MSG_SPOOFED_PROCESS              ((DWORD)0x80020104L)
+
+//
+// MessageId: MSG_SPAWN_PROCESS
+//
+// MessageText:
+//
+// %1 (%2, as %3 from %4 at %5) ran %6 with PID %7; parameters %8.
+//
+#define MSG_SPAWN_PROCESS                ((DWORD)0x40020105L)
 
