@@ -290,7 +290,8 @@ BOOL LogParentSpoof(DWORD fakeParent, LPCSTR image, LPCSTR parameters, DWORD pid
 		return FALSE;
 	}
 
-	FreeEventBaseArguments(arguments);
+	// 4 frees the extra 4 arguments
+	FreeEventBaseArguments(arguments, 4);
 	return TRUE;
 }
 BOOL LogProcessCreate(LPCSTR image, LPCSTR parameters, DWORD pid) {
@@ -310,6 +311,41 @@ BOOL LogProcessCreate(LPCSTR image, LPCSTR parameters, DWORD pid) {
 		return FALSE;
 	}
 
-	FreeEventBaseArguments(arguments);
+	// 3 frees the extra 3 arguments
+	FreeEventBaseArguments(arguments, 3);
 	return TRUE;
+}
+BOOL LogPrivilegeAdjust(BOOL added, ULONG privilege) {
+	LPCSTR* arguments = EventBaseArguments(1);
+
+	LUID luid;
+	luid.LowPart = privilege;
+	luid.HighPart = 0;
+
+	DWORD nameLength = 255;
+	char* name = (char*)calloc(nameLength + 1, sizeof(char));
+	if (name == NULL) {
+		WRITELINE_DEBUG("Could not allocate memory for privilege name");
+		return FALSE;
+	}
+
+	if (!LookupPrivilegeNameA(NULL, &luid, name, &nameLength)) {
+		sprintf_s(name, nameLength, "UNKNOWN PRIVILEGE (%lu)", privilege);
+	}
+
+	if (added) {
+		arguments[5] = "added";
+	} else {
+		arguments[5] = "removed";
+	}
+	arguments[6] = name;
+
+	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_PRIVILEGE, MSG_PRIVILEGE_ADJUST, NULL, 7, 0, arguments, NULL)) {
+		WRITELINE_DEBUG("Could not send event: " << GetLastError());
+		FreeEventBaseArguments(arguments);
+		return FALSE;
+	}
+
+	free(name);
+	FreeEventBaseArguments(arguments);
 }
