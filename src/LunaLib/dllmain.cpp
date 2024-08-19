@@ -208,20 +208,15 @@ void InstallHooks() {
     EXTERN_HOOK(MessageBoxA);
     QUICK_HOOK("user32.dll", MessageBoxA);
 #endif
-    // Testing for now
-    EXTERN_HOOK(RtlAdjustPrivilege);
-    //EXTERN_HOOK(NtReadFile);
-    QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
-
     //EXTERN_HOOK(NtWriteFile);
     QUICK_HOOK_V3("ntdll.dll", NtReadFile);
     //QUICK_HOOK_V3("ntdll.dll", NtWriteFile);
 
     // Privilege adjust
-    EXTERN_HOOK(AdjustTokenPrivileges);
+    EXTERN_HOOK(RtlAdjustPrivilege);
     EXTERN_HOOK(ZwAdjustPrivilegesToken);
     EXTERN_HOOK(NtAdjustPrivilegesToken);
-    QUICK_HOOK("kernelbase.dll", AdjustTokenPrivileges);
+    QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
     QUICK_HOOK("ntdll.dll", ZwAdjustPrivilegesToken);
     QUICK_HOOK("ntdll.dll", NtAdjustPrivilegesToken);
 
