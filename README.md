@@ -1,21 +1,9 @@
-# Seamless Extracurricular Activities (LunaJuice)
+# LunaJuice
 
-For our extracurricular activities at Seamless while we're ahead.
+A tool to subdue and monitor suspicious processes.
 
-[Documentation goes here](https://github.com/Aurillium/Seamless-Extracurricular/wiki) as updating this file requires a PR and I can't exclude it.
+[Documentation goes here](https://github.com/Aurillium/LunaJuice/wiki) as updating this file requires a PR and I can't exclude it.
 
-## TODO
+### Looking for downloads?
 
-### Memphis
-
-- [x] Integrate with event viewer
-- [x] LogRhythm MPE rules
-- [x] Limit debug outputs to when debugging mode is active
-- [ ] Add a mode to the DLL to watch but not affect any functionality
-- [ ] Add a mode to the injector to not drop privileges
-- [ ] Function logging regardless of argument type
-- [ ] Process tree persistence (lowest priority)
-- [ ] Control functions to change tracking dynamically (lowest priority)
-
-### Lachlan
-
+[Check out GitHub Actions](https://github.com/Aurillium/LunaJuice/actions). No releases have been built yet and none are planned currently, but the latest builds in each PR and in main will be automatically generated here.
