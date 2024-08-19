@@ -3,10 +3,10 @@
 #include "events.h"
 #include "messages.h"
 #include <iostream>
-#include <tlhelp32.h>
 
 #include "debug.h"
 #include "hooks.h"
+#include "util.h"
 
 // One instance for the whole process ensures efficiency
 HANDLE LOG_HANDLE;
@@ -26,34 +26,6 @@ CONST DWORD GetParentPidInt() { return PPID_INT; }
 #define DEFAULT_ARGS 5
 
 EXTERN_HOOK(OpenProcess);
-
-// https://gist.github.com/mattn/253013/d47b90159cf8ffa4d92448614b748aa1d235ebe4
-static DWORD GetParentProcessId(DWORD pid) {
-	HANDLE hSnapshot;
-	PROCESSENTRY32 pe32;
-	DWORD ppid = 0;
-
-	hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	__try {
-		if (hSnapshot == INVALID_HANDLE_VALUE) __leave;
-
-		ZeroMemory(&pe32, sizeof(pe32));
-		pe32.dwSize = sizeof(pe32);
-		if (!Process32First(hSnapshot, &pe32)) __leave;
-
-		do {
-			if (pe32.th32ProcessID == pid) {
-				ppid = pe32.th32ParentProcessID;
-				break;
-			}
-		} while (Process32Next(hSnapshot, &pe32));
-
-	}
-	__finally {
-		if (hSnapshot != INVALID_HANDLE_VALUE) CloseHandle(hSnapshot);
-	}
-	return ppid;
-}
 
 static BOOL PopulateDetailFields() {
 	char* pidBuffer = (char*)calloc(11 /* Max PID size is 10 */, sizeof(char));

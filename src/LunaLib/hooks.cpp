@@ -167,15 +167,15 @@ HOOKDEF(NtCreateUserProcess, NTAPI, NTSTATUS, (
     IN PPS_ATTRIBUTE_LIST AttributeList
 )) {
     // Fake parent process handle
-    HANDLE hParent = AttributeList->Attributes[5].ValuePtr;
-    DWORD spoofedParentID = GetProcessId(hParent);
-    if (hParent == NULL) {
-        WRITELINE_DEBUG("Parent is NULL");
-        spoofedParentID = GetCurrentProcessId();
-    }
+    //HANDLE hParent = AttributeList->Attributes[5].ValuePtr;
+    //DWORD spoofedParentID = GetProcessId(hParent);
+    //if (hParent == NULL) {
+    //    WRITELINE_DEBUG("Parent is NULL");
+    //    spoofedParentID = GetCurrentProcessId();
+    //}
     WRITELINE_DEBUG(AttributeList->TotalLength << ", " << sizeof(PS_ATTRIBUTE_LIST) << ", " << sizeof(PS_ATTRIBUTE));
 
-    WRITELINE_DEBUG("Parent PID: " << spoofedParentID);
+    //WRITELINE_DEBUG("Parent PID: " << spoofedParentID);
 
     // Try get a normal string
     UNICODE_STRING imageUnicode = ProcessParameters->ImagePathName;
@@ -196,6 +196,9 @@ HOOKDEF(NtCreateUserProcess, NTAPI, NTSTATUS, (
 
     WRITELINE_DEBUG("PID: " << processID);
 
+    DWORD spoofedParentID = GetParentProcessId(processID);
+    WRITELINE_DEBUG("Parent PID: " << spoofedParentID);
+    WRITELINE_DEBUG("My PID: " << GetCurrentProcessId());
     if (spoofedParentID != GetCurrentProcessId()) {
         LogParentSpoof(spoofedParentID, image, parameters, processID);
     } else {
