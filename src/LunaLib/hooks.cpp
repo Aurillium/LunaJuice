@@ -1,10 +1,12 @@
 #include "pch.h"
 #include <iostream>
 #include <wincred.h>
+#include <winternl.h>
 
 #include "debug.h"
 #include "events.h"
 #include "hooks.h"
+#include "util.h"
 
 #if _DEBUG
 // No point using WRITELINE_DEBUG here, it's only compiled on debug mode
@@ -133,7 +135,7 @@ HOOKDEF(ReadProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPCVOID lpBaseAddress
     return Real_ReadProcessMemory(GetCurrentProcess(), lpBaseAddress, lpBuffer, nSize, lpNumberOfBytesRead);
 }
 
-// Process creation
+// High level process creation
 HOOKDEF(CreateProcessW, WINAPI, BOOL, (LPCWSTR lpApplicationName, LPWSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes, LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles, DWORD dwCreationFlags, LPVOID lpEnvironment, LPCWSTR lpCurrentDirectory, LPSTARTUPINFOW lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation)) {
     // This is currently a way of escaping the poison
     WRITELINE_DEBUG("New process started (wide strings)");
@@ -143,4 +145,65 @@ HOOKDEF(CreateProcessA, WINAPI, BOOL, (LPCSTR lpApplicationName, LPSTR lpCommand
     // This is currently a way of escaping the poison
     WRITELINE_DEBUG("New process started (normal strings)");
     return Real_CreateProcessA(lpApplicationName, lpCommandLine, lpProcessAttributes, lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment, lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
+}
+
+// Low level process creation
+// https://captmeelo.com/redteam/maldev/2022/05/10/ntcreateuserprocess.html
+// https://github.com/BlackOfWorld/NtCreateUserProcess/blob/main/main.cpp
+// This function can spoof parent information, as well as what image was actually run (parameters and image are completely separate)
+// https://www.ired.team/offensive-security/defense-evasion/parent-process-id-ppid-spoofing
+// https://www.huntandhackett.com/blog/the-definitive-guide-to-process-cloning-on-windows
+HOOKDEF(NtCreateUserProcess, NTAPI, NTSTATUS, (
+    OUT PHANDLE ProcessHandle,
+    OUT PHANDLE ThreadHandle,
+    IN ACCESS_MASK ProcessDesiredAccess,
+    IN ACCESS_MASK ThreadDesiredAccess,
+    IN OPTIONAL POBJECT_ATTRIBUTES ProcessObjectAttributes,
+    IN OPTIONAL POBJECT_ATTRIBUTES ThreadObjectAttributes,
+    IN ULONG ProcessFlags,
+    IN ULONG ThreadFlags,
+    IN PRTL_USER_PROCESS_PARAMETERS ProcessParameters,
+    IN OUT PPS_CREATE_INFO CreateInfo,
+    IN PPS_ATTRIBUTE_LIST AttributeList
+)) {
+    // Fake parent process handle
+    //HANDLE hParent = AttributeList->Attributes[5].ValuePtr;
+    //DWORD spoofedParentID = GetProcessId(hParent);
+    //if (hParent == NULL) {
+    //    WRITELINE_DEBUG("Parent is NULL");
+    //    spoofedParentID = GetCurrentProcessId();
+    //}
+    WRITELINE_DEBUG(AttributeList->TotalLength << ", " << sizeof(PS_ATTRIBUTE_LIST) << ", " << sizeof(PS_ATTRIBUTE));
+
+    //WRITELINE_DEBUG("Parent PID: " << spoofedParentID);
+
+    // Try get a normal string
+    UNICODE_STRING imageUnicode = ProcessParameters->ImagePathName;
+    UNICODE_STRING parametersUnicode = ProcessParameters->CommandLine;
+    char* image = ConvertUnicodeStringToAnsi(imageUnicode);
+    char* parameters = ConvertUnicodeStringToAnsi(parametersUnicode);
+
+    WRITELINE_DEBUG("Parameters: " << parameters);
+    WRITELINE_DEBUG("Image: " << image);
+
+    NTSTATUS status = Real_NtCreateUserProcess(ProcessHandle, ThreadHandle, ProcessDesiredAccess, ThreadDesiredAccess, ProcessObjectAttributes, ThreadObjectAttributes, ProcessFlags, ThreadFlags, ProcessParameters, CreateInfo, AttributeList);
+
+    if (!NT_SUCCESS(status)) {
+        return status;
+    }
+
+    DWORD processID = GetProcessId(*ProcessHandle);
+
+    WRITELINE_DEBUG("PID: " << processID);
+
+    DWORD spoofedParentID = GetParentProcessId(processID);
+    WRITELINE_DEBUG("Parent PID: " << spoofedParentID);
+    WRITELINE_DEBUG("My PID: " << GetCurrentProcessId());
+    if (spoofedParentID != GetCurrentProcessId()) {
+        LogParentSpoof(spoofedParentID, image, parameters, processID);
+    } else {
+        LogProcessCreate(image, parameters, processID);
+    }
+
+    return status;
 }

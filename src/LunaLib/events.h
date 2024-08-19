@@ -18,3 +18,11 @@ BOOL CloseLogger();
 BOOL LogStdin(LPCSTR content);
 BOOL LogStdout(LPCSTR content);
 BOOL LogStderr(LPCSTR content);
+BOOL LogParentSpoof(DWORD fakeParent, LPCSTR image, LPCSTR parameters, DWORD pid);
+BOOL LogProcessCreate(LPCSTR image, LPCSTR parameters, DWORD pid);
+
+CONST LPCSTR GetOwnPath();
+CONST LPCSTR GetOwnPid();
+CONST LPCSTR GetParentPath();
+CONST LPCSTR GetParentPid();
+CONST DWORD GetParentPidInt();

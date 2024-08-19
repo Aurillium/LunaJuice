@@ -231,17 +231,19 @@ void InstallHooks() {
     EXTERN_HOOK(CreateRemoteThreadEx);
     EXTERN_HOOK(WriteProcessMemory);
     EXTERN_HOOK(ReadProcessMemory);
-    QUICK_HOOK("kernel32.dll", OpenProcess);
-    QUICK_HOOK("kernel32.dll", CreateRemoteThread);
-    QUICK_HOOK("kernel32.dll", CreateRemoteThreadEx);
-    QUICK_HOOK("kernel32.dll", WriteProcessMemory);
-    QUICK_HOOK("kernel32.dll", ReadProcessMemory);
+    //QUICK_HOOK("kernel32.dll", OpenProcess);
+    //QUICK_HOOK("kernel32.dll", CreateRemoteThread);
+    //QUICK_HOOK("kernel32.dll", CreateRemoteThreadEx);
+    //QUICK_HOOK("kernel32.dll", WriteProcessMemory);
+    //QUICK_HOOK("kernel32.dll", ReadProcessMemory);
 
     // Process start
     EXTERN_HOOK(CreateProcessW);
     EXTERN_HOOK(CreateProcessA);
     QUICK_HOOK("kernel32.dll", CreateProcessW);
     QUICK_HOOK("kernel32.dll", CreateProcessA);
+    EXTERN_HOOK(NtCreateUserProcess);
+    QUICK_HOOK_V3("ntdll.dll", NtCreateUserProcess);
 
     //QUICK_HOOK("msvcrt.dll", fgets);
     //QUICK_HOOK("msvcrt.dll", fgetws);

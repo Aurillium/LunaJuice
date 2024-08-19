@@ -3,10 +3,10 @@
 #include "events.h"
 #include "messages.h"
 #include <iostream>
-#include <tlhelp32.h>
 
 #include "debug.h"
 #include "hooks.h"
+#include "util.h"
 
 // One instance for the whole process ensures efficiency
 HANDLE LOG_HANDLE;
@@ -15,38 +15,17 @@ LPCSTR PID;
 LPCSTR PPID;
 LPCSTR PATH;
 LPCSTR PARENT_PATH;
+DWORD PPID_INT;
+
+CONST LPCSTR GetOwnPath() { return PATH; }
+CONST LPCSTR GetOwnPid() { return PID; }
+CONST LPCSTR GetParentPath() { return PARENT_PATH; }
+CONST LPCSTR GetParentPid() { return PPID; }
+CONST DWORD GetParentPidInt() { return PPID_INT; }
 
 #define DEFAULT_ARGS 5
 
 EXTERN_HOOK(OpenProcess);
-
-// https://gist.github.com/mattn/253013/d47b90159cf8ffa4d92448614b748aa1d235ebe4
-static DWORD GetParentProcessId(DWORD pid) {
-	HANDLE hSnapshot;
-	PROCESSENTRY32 pe32;
-	DWORD ppid = 0;
-
-	hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	__try {
-		if (hSnapshot == INVALID_HANDLE_VALUE) __leave;
-
-		ZeroMemory(&pe32, sizeof(pe32));
-		pe32.dwSize = sizeof(pe32);
-		if (!Process32First(hSnapshot, &pe32)) __leave;
-
-		do {
-			if (pe32.th32ProcessID == pid) {
-				ppid = pe32.th32ParentProcessID;
-				break;
-			}
-		} while (Process32Next(hSnapshot, &pe32));
-
-	}
-	__finally {
-		if (hSnapshot != INVALID_HANDLE_VALUE) CloseHandle(hSnapshot);
-	}
-	return ppid;
-}
 
 static BOOL PopulateDetailFields() {
 	char* pidBuffer = (char*)calloc(11 /* Max PID size is 10 */, sizeof(char));
@@ -67,6 +46,7 @@ static BOOL PopulateDetailFields() {
 
 	DWORD ppid = GetParentProcessId(pid);
 	sprintf_s(ppidBuffer, 11, "%d", ppid);
+	PPID_INT = ppid;
 
 	// This should always run before hooking
 #if _DEBUG
@@ -283,6 +263,53 @@ BOOL LogStderr(LPCSTR content) {
 		FreeEventBaseArguments(arguments);
 		return FALSE;
 	}
+	FreeEventBaseArguments(arguments);
+	return TRUE;
+}
+
+BOOL LogParentSpoof(DWORD fakeParent, LPCSTR image, LPCSTR parameters, DWORD pid) {
+	LPCSTR* arguments = EventBaseArguments(4);
+	arguments[5] = image;
+	arguments[6] = (LPCSTR)calloc(11, sizeof(char));
+	if (arguments[6] == NULL) {
+		WRITELINE_DEBUG("Could not send event: could not allocate buffer for new PID.");
+		return FALSE;
+	}
+	sprintf_s((char*)arguments[6], 11, "%d", pid);
+	arguments[7] = parameters;
+	arguments[8] = (LPCSTR)calloc(11, sizeof(char));
+	if (arguments[8] == NULL) {
+		WRITELINE_DEBUG("Could not send event: could not allocate buffer for fake parent PID.");
+		return FALSE;
+	}
+	sprintf_s((char*)arguments[8], 11, "%d", fakeParent);
+
+	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_PROCESS, MSG_SPOOFED_PROCESS, NULL, 9, 0, arguments, NULL)) {
+		WRITELINE_DEBUG("Could not send event: " << GetLastError());
+		FreeEventBaseArguments(arguments);
+		return FALSE;
+	}
+
+	FreeEventBaseArguments(arguments);
+	return TRUE;
+}
+BOOL LogProcessCreate(LPCSTR image, LPCSTR parameters, DWORD pid) {
+	LPCSTR* arguments = EventBaseArguments(4);
+	arguments[5] = image;
+	arguments[6] = (LPCSTR)calloc(11, sizeof(char));
+	if (arguments[6] == NULL) {
+		WRITELINE_DEBUG("Could not send event: could not allocate buffer for new PID.");
+		return FALSE;
+	}
+	sprintf_s((char*)arguments[6], 11, "%d", pid);
+	arguments[7] = parameters;
+
+	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_PROCESS, MSG_SPAWN_PROCESS, NULL, 8, 0, arguments, NULL)) {
+		WRITELINE_DEBUG("Could not send event: " << GetLastError());
+		FreeEventBaseArguments(arguments);
+		return FALSE;
+	}
+
 	FreeEventBaseArguments(arguments);
 	return TRUE;
 }
