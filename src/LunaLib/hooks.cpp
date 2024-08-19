@@ -53,7 +53,6 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN PLARGE_INTEGER       ByteOffset OPTIONAL,
     IN PULONG               Key OPTIONAL)) {
 
-    GetFileNameFromHandle(FileHandle);
     if (FileHandle == GetStdHandle(STD_INPUT_HANDLE)) {
         // If it's our first time, try read the buffer before overwriting
         if (firstNtRead) {
