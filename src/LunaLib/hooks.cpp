@@ -36,14 +36,11 @@ HOOKDEF(ReadFile, WINAPI, BOOL, (HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfB
 }
 
 // Privilege adjust
-HOOKDEF(AdjustTokenPrivileges, __stdcall, BOOL, (HANDLE TokenHandle, BOOL DisableAllPrivileges, PTOKEN_PRIVILEGES NewState, DWORD BufferLength, PTOKEN_PRIVILEGES PreviousState, PDWORD ReturnLength)) {
-    // Redirect file writes or modify behavior here
-    WRITELINE_DEBUG("Token adjust hooked!");
-    return Real_AdjustTokenPrivileges(TokenHandle, DisableAllPrivileges, NewState, BufferLength, PreviousState, ReturnLength);
-}
 HOOKDEF(RtlAdjustPrivilege, WINAPI, NTSTATUS, (IN ULONG Privilege, IN BOOL Enable, IN BOOL CurrentThread, OUT PULONG pPreviousState)) {
-    WRITELINE_DEBUG("Faked sucessful escalation!");
-    return 0xC0000061; // Permission denied
+    LogPrivilegeAdjust(Enable, Privilege);
+    WRITELINE_DEBUG("Detected priv adjust");
+    NTSTATUS status = Real_RtlAdjustPrivilege(Privilege, Enable, CurrentThread, pPreviousState);
+    return status; // Permission denied
     // Success
     return 0;
 }
@@ -106,32 +103,32 @@ HOOKDEF(NtWriteFile, NTAPI, NTSTATUS, (
 // Open process
 HOOKDEF(OpenProcess, WINAPI, HANDLE, (IN DWORD dwDesiredAccess, IN BOOL bInheritHandle, IN DWORD dwProcessId)) {
     // Return handle to own process
-    WRITELINE_DEBUG("Faked open process");
+    WRITELINE_DEBUG("Detected open process");
     return Real_OpenProcess(dwDesiredAccess, bInheritHandle, GetCurrentProcessId());
 }
 
 // Remote threads
 HOOKDEF(CreateRemoteThread, WINAPI, HANDLE, (HANDLE hProcess, LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, LPDWORD lpThreadId)) {
     // Create thread in our process
-    WRITELINE_DEBUG("Faked remote thread");
+    WRITELINE_DEBUG("Detected remote thread");
     return Real_CreateRemoteThread(GetCurrentProcess(), lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
 }
 HOOKDEF(CreateRemoteThreadEx, WINAPI, HANDLE, (HANDLE hProcess, LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList, LPDWORD lpThreadId)) {
     // Create thread in our process
-    WRITELINE_DEBUG("Faked remote thread");
+    WRITELINE_DEBUG("Detected remote thread");
     return Real_CreateRemoteThreadEx(GetCurrentProcess(), lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpAttributeList, lpThreadId);
 }
 
 // Remote writes
 HOOKDEF(WriteProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPVOID lpBaseAddress, LPCVOID lpBuffer, SIZE_T nSize, SIZE_T* lpNumberofBytesWritten)) {
     // Write to our process
-    WRITELINE_DEBUG("Faked process write");
+    WRITELINE_DEBUG("Detected process write");
     return Real_WriteProcessMemory(GetCurrentProcess(), lpBaseAddress, lpBuffer, nSize, lpNumberofBytesWritten);
 }
 // Remote reads
 HOOKDEF(ReadProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize, SIZE_T* lpNumberOfBytesRead)) {
     // Read from our process
-    WRITELINE_DEBUG("Faked process read");
+    WRITELINE_DEBUG("Detected process read");
     return Real_ReadProcessMemory(GetCurrentProcess(), lpBaseAddress, lpBuffer, nSize, lpNumberOfBytesRead);
 }
 
@@ -204,6 +201,9 @@ HOOKDEF(NtCreateUserProcess, NTAPI, NTSTATUS, (
     } else {
         LogProcessCreate(image, parameters, processID);
     }
+
+    // WARNING! image and parameters are freed in the log functions
+    // DO NOT free them here.
 
     return status;
 }

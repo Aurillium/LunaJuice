@@ -42,6 +42,11 @@ Language=English
 Process-Related Event
 .
 
+MessageId=0x4
+SymbolicName=CAT_PRIVILEGE
+Language=English
+Privilege-Related Event
+.
 
 ; // The following are the message definitions.
 ; // 1 = PID
@@ -99,4 +104,13 @@ Facility=Abstract
 SymbolicName=MSG_SPAWN_PROCESS
 Language=English
 %1 (%2, as %3 from %4 at %5) ran %6 with PID %7; parameters %8.
+.
+
+; // %6 is either "added" or "removed". %7 is int privilege for now, but will become name
+MessageId=0x106
+Severity=Informational
+Facility=Abstract
+SymbolicName=MSG_PRIVILEGE_ADJUST
+Language=English
+%1 (%2, as %3 from %4 at %5) %6 privilege %7.
 .

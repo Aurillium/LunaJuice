@@ -73,6 +73,15 @@
 //
 #define CAT_PROCESS                      ((WORD)0x00000003L)
 
+//
+// MessageId: CAT_PRIVILEGE
+//
+// MessageText:
+//
+// Privilege-Related Event
+//
+#define CAT_PRIVILEGE                    ((WORD)0x00000004L)
+
  // The following are the message definitions.
  // 1 = PID
  // 2 = Path
@@ -132,4 +141,14 @@
 // %1 (%2, as %3 from %4 at %5) ran %6 with PID %7; parameters %8.
 //
 #define MSG_SPAWN_PROCESS                ((DWORD)0x40020105L)
+
+ // %6 is either "added" or "removed". %7 is int privilege for now, but will become name
+//
+// MessageId: MSG_PRIVILEGE_ADJUST
+//
+// MessageText:
+//
+// %1 (%2, as %3 from %4 at %5) %6 privilege %7.
+//
+#define MSG_PRIVILEGE_ADJUST             ((DWORD)0x40020106L)
 
