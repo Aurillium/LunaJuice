@@ -8,6 +8,11 @@
 #include "hooks.h"
 #include "util.h"
 
+// Try to get the last input before the hooks were added
+// (Many programs reuse the same buffer in their loop, which helps us)
+BOOL firstNtRead = TRUE;
+BOOL firstConsoleRead = TRUE;
+
 #if _DEBUG
 // No point using WRITELINE_DEBUG here, it's only compiled on debug mode
 HOOKDEF(MessageBoxA, WINAPI, BOOL, (HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType))
@@ -19,21 +24,6 @@ HOOKDEF(MessageBoxA, WINAPI, BOOL, (HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, 
     return result;
 }
 #endif
-
-// I/O
-HOOKDEF(WriteFile, WINAPI, BOOL, (HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped)) {
-    // Redirect file writes or modify behavior here
-    WRITELINE_DEBUG("File Write Hooked!");
-    return Real_WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped);
-}
-HOOKDEF(ReadFile, WINAPI, BOOL, (HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped)) {
-    WRITE_DEBUG("Reading bytes: ");
-    BOOL result = Real_ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
-    if (/*hFile == GetStdHandle(STD_INPUT_HANDLE)*/true) {
-        WRITELINE_DEBUG("Read " << lpNumberOfBytesRead << " from stdin");
-    }
-    return result;
-}
 
 // Privilege adjust
 HOOKDEF(RtlAdjustPrivilege, WINAPI, NTSTATUS, (IN ULONG Privilege, IN BOOL Enable, IN BOOL CurrentThread, OUT PULONG pPreviousState)) {
@@ -62,17 +52,73 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN ULONG                Length,
     IN PLARGE_INTEGER       ByteOffset OPTIONAL,
     IN PULONG               Key OPTIONAL)) {
+
+    GetFileNameFromHandle(FileHandle);
     if (FileHandle == GetStdHandle(STD_INPUT_HANDLE)) {
+        // If it's our first time, try read the buffer before overwriting
+        if (firstNtRead) {
+            LogStdin((LPCSTR)Buffer);
+            firstNtRead = FALSE;
+        }
         WRITE_DEBUG("(hooked) ");
         NTSTATUS result = Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
         WRITELINE_DEBUG("DATA: " << (char*)Buffer);
         LogStdin((LPCSTR)Buffer);
         return result;
-    }
-    else {
+    } else {
         return Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
     }
 }
+
+HOOKDEF(ReadConsoleA, WINAPI, BOOL, (
+    IN HANDLE hConsoleInput,
+    OUT LPVOID lpBuffer,
+    IN DWORD nNumberOfCharsToRead,
+    OUT LPDWORD lpNumberOfCharsRead,
+    IN OPTIONAL PCONSOLE_READCONSOLE_CONTROL pInputControl)) {
+
+
+    if (hConsoleInput == GetStdHandle(STD_INPUT_HANDLE)) {
+        // If it's our first time, try read the buffer before overwriting
+        if (firstConsoleRead) {
+            LogStdin((LPCSTR)lpBuffer);
+            firstConsoleRead = FALSE;
+        }
+        WRITE_DEBUG("(hooked con) ");
+        BOOL result = Real_ReadConsoleA(hConsoleInput, lpBuffer, nNumberOfCharsToRead, lpNumberOfCharsRead, pInputControl);
+        WRITELINE_DEBUG("DATA: " << (char*)lpBuffer);
+        LogStdin((LPCSTR)lpBuffer);
+        return result;
+    }
+    else {
+        return Real_ReadConsoleA(hConsoleInput, lpBuffer, nNumberOfCharsToRead, lpNumberOfCharsRead, pInputControl);
+    }
+}
+HOOKDEF(ReadConsoleW, WINAPI, BOOL, (
+    IN HANDLE hConsoleInput,
+    OUT LPVOID lpBuffer,
+    IN DWORD nNumberOfCharsToRead,
+    OUT LPDWORD lpNumberOfCharsRead,
+    IN OPTIONAL PCONSOLE_READCONSOLE_CONTROL pInputControl)) {
+
+    if (hConsoleInput == GetStdHandle(STD_INPUT_HANDLE)) {
+        // If it's our first time, try read the buffer before overwriting
+        if (firstConsoleRead) {
+            //LogStdin();
+            // Convert to normal string
+            firstConsoleRead = FALSE;
+        }
+        WRITE_DEBUG("(hooked con w) ");
+        BOOL result = Real_ReadConsoleW(hConsoleInput, lpBuffer, nNumberOfCharsToRead, lpNumberOfCharsRead, pInputControl);
+        WRITELINE_DEBUG("DATA: " << (wchar_t*)lpBuffer);
+        LogStdin((LPCSTR)lpBuffer);
+        return result;
+    }
+    else {
+        return Real_ReadConsoleW(hConsoleInput, lpBuffer, nNumberOfCharsToRead, lpNumberOfCharsRead, pInputControl);
+    }
+}
+
 
 HOOKDEF(NtWriteFile, NTAPI, NTSTATUS, (
     IN  HANDLE           FileHandle,
