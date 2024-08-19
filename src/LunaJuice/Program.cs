@@ -354,8 +354,9 @@ class Program
         Console.WriteLine("Obtaining debug privilege...");
         EnableDebugPrivilege();
 
-        Console.WriteLine("Dropping all privileges...");
-        DropAllPrivileges(targetProcessId);
+        // This interferes with legitimate processes, don't do it for now
+        //Console.WriteLine("Dropping all privileges...");
+        //DropAllPrivileges(targetProcessId);
         Console.WriteLine("Injecting monitor DLL...");
         InjectDLL(targetProcessId);
         Console.WriteLine($"Dropped privileges for process ID {targetProcessId}");
