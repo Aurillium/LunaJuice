@@ -226,12 +226,26 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
 
     // Get address of hook
     uintptr_t hookFuncAddr = (uintptr_t)hookFunction;
+    // https://github.com/bats3c/EvtMute/blob/master/EvtMute/EvtMuteHook/dllmain.cpp#L57
+    // https://gist.github.com/benpturner/43b46506e4f98e5b860f72c3a6c42367
+    // TAKEAWAYS: NEEDS TO BE LONGER, 0x41 extends registers to r8-r15
+    // 0xC3 is ret, not needed here
+    // 0x00 is noop
+    // Update: going with absolute indirect jump for now
     // Write the jump towards hook function where the first 14 bytes used to be
-    *(BYTE*)targetFunctionAddress = 0x48;                 // mov rax, hookfunc
-    *(BYTE*)((BYTE*)targetFunctionAddress + 1) = 0xB8;
-    *(uintptr_t*)((BYTE*)targetFunctionAddress + 2) = hookFuncAddr;
-    *(BYTE*)((BYTE*)targetFunctionAddress + 10) = 0xFF;   // jmp rax
-    *(BYTE*)((BYTE*)targetFunctionAddress + 11) = 0xE0;
+    //*(BYTE*)targetFunctionAddress = 0x49;                 // mov r11, hookfunc
+    //*(BYTE*)((BYTE*)targetFunctionAddress + 1) = 0xBB;
+    //*(uintptr_t*)((BYTE*)targetFunctionAddress + 2) = hookFuncAddr;
+    //*(BYTE*)((BYTE*)targetFunctionAddress + 10) = 0xFF;   // jmp r11
+    //*(BYTE*)((BYTE*)targetFunctionAddress + 11) = 0xE3;
+
+    // Write the jump towards hook function where the first 14 bytes used to be
+    // Perform absolute indirect jump
+    *(BYTE*)targetFunctionAddress = 0xFF;
+    *(BYTE*)((BYTE*)targetFunctionAddress + 1) = 0x25;
+    *(DWORD*)((BYTE*)targetFunctionAddress + 2) = 0x00000000;
+    *(uintptr_t*)((BYTE*)targetFunctionAddress + 6) = hookFuncAddr;
+
 
     // Rewrite old protections
     if (!VirtualProtect(targetFunctionAddress, 14, oldProtect, &oldProtect)) {
