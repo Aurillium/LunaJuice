@@ -5,6 +5,7 @@
 
 #include "debug.h"
 #include "events.h"
+#include "functionlogs.h"
 #include "hooks.h"
 #include "util.h"
 
@@ -52,6 +53,8 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN ULONG                Length,
     IN PLARGE_INTEGER       ByteOffset OPTIONAL,
     IN PULONG               Key OPTIONAL)) {
+
+    GetSignatureTemplate(String_NtReadFile);
 
     if (FileHandle == GetStdHandle(STD_INPUT_HANDLE)) {
         // If it's our first time, try read the buffer before overwriting

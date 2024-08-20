@@ -13,6 +13,7 @@
 
 #include "include/capstone/capstone.h"
 
+// This is needed in other functions too
 EXTERN_HOOK(NtReadFile);
 
 // This may need improvement, unsure on stability
@@ -211,6 +212,10 @@ void InstallHooks() {
     //EXTERN_HOOK(NtWriteFile);
     QUICK_HOOK_V3("ntdll.dll", NtReadFile);
     //QUICK_HOOK_V3("ntdll.dll", NtWriteFile);
+    EXTERN_HOOK(ReadConsoleA);
+    EXTERN_HOOK(ReadConsoleW);
+    //QUICK_HOOK("kernel32.dll", ReadConsoleA);
+    //QUICK_HOOK("kernel32.dll", ReadConsoleW);
 
     // Privilege adjust
     EXTERN_HOOK(RtlAdjustPrivilege);

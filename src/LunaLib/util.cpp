@@ -70,7 +70,7 @@ DWORD GetParentProcessId(DWORD pid) {
 
     }
     __finally {
-        if (hSnapshot != INVALID_HANDLE_VALUE) CloseHandle(hSnapshot);
+        if (hSnapshot != INVALID_HANDLE_VALUE && hSnapshot != NULL) CloseHandle(hSnapshot);
     }
     return ppid;
 }
