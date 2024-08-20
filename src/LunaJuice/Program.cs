@@ -134,7 +134,7 @@ class Program
     static extern bool OpenProcessToken(IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
 
     [DllImport("advapi32.dll", SetLastError = true)]
-    static extern bool LookupPrivilegeValue(string lpSystemName, string lpName, out LUID lpLuid);
+    static extern bool LookupPrivilegeValue(string? lpSystemName, string lpName, out LUID lpLuid);
 
     [DllImport("advapi32.dll", SetLastError = true)]
     static extern bool AdjustTokenPrivileges(IntPtr TokenHandle, bool DisableAllPrivileges, ref TOKEN_PRIVILEGES NewState, uint BufferLength, IntPtr PreviousState, IntPtr ReturnLength);
