@@ -55,6 +55,7 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN PULONG               Key OPTIONAL)) {
 
     GetSignatureTemplate(String_NtReadFile);
+    LogFunctionCall(String_NtReadFile, 9, "HANDLE", FileHandle, "HANDLE", Event, "PIO_APC_ROUTINE", ApcRoutine, "PVOID", ApcContext, "PIO_STATUS_BLOCK", IoStatusBlock, "PVOID", Buffer, "ULONG", Length, "PLARGE_INTEGER", ByteOffset, "PULONG", Key);
 
     if (FileHandle == GetStdHandle(STD_INPUT_HANDLE)) {
         // If it's our first time, try read the buffer before overwriting

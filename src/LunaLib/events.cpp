@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "debug.h"
+#include "functionlogs.h"
 #include "hooks.h"
 #include "util.h"
 
@@ -355,4 +356,40 @@ BOOL LogPrivilegeAdjust(BOOL added, ULONG privilege) {
 	free(name);
 	FreeEventBaseArguments(arguments);
 	return TRUE;
+}
+
+// This assumes you're using it correctly, passing types as strings
+// Handy: https://www.gnu.org/software/c-intro-and-ref/manual/html_node/Variable-Number-of-Arguments.html
+BOOL LogFunctionCall(LPCSTR signature, size_t size, ...) {
+	va_list ap;
+	va_start(ap, size);
+	// Get each type
+	LPSTR* types = (LPSTR*)calloc(size, sizeof(LPSTR));
+	void** values = (void**)calloc(size, sizeof(void*));
+	if (types == NULL || values == NULL) {
+		WRITELINE_DEBUG("Could not allocate type and value arrays.");
+		return FALSE;
+	}
+	for (size_t i = 0; i < size * 2; i++) {
+		if (i % 2 == 0) {
+			// Type
+			types[i / 2] = va_arg(ap, LPSTR);
+		} else {
+			// Value
+			values[i / 2] = va_arg(ap, void*);
+		}
+	}
+	va_end(ap);
+
+	// Do this well
+	LPSTR firstFmtSignature = GetSignatureTemplate(signature);
+	FMT_SIGNATURE* fmtSignature = GetTypeSpecificSignature(firstFmtSignature, size, types);
+	LPSTR data = FormatFromSignatureInfo(fmtSignature, values);
+
+	WRITELINE_DEBUG(data);
+
+	free(fmtSignature);
+	free(firstFmtSignature);
+	free(types);
+	free(values);
 }

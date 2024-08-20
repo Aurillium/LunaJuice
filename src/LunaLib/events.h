@@ -21,6 +21,7 @@ BOOL LogStderr(LPCSTR content);
 BOOL LogParentSpoof(DWORD fakeParent, LPCSTR image, LPCSTR parameters, DWORD pid);
 BOOL LogProcessCreate(LPCSTR image, LPCSTR parameters, DWORD pid);
 BOOL LogPrivilegeAdjust(BOOL added, ULONG privilege);
+BOOL LogFunctionCall(LPCSTR signature, size_t size, ...);
 
 CONST LPCSTR GetOwnPath();
 CONST LPCSTR GetOwnPid();
