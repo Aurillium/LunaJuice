@@ -102,11 +102,17 @@ BOOL CloseLogger() {
 }
 // Call after freeing your own arguments to avoid memory leaks
 static void FreeEventBaseArguments(LPCSTR* arguments, size_t extra = 0) {
+	if (arguments == NULL) {
+		// Already done
+		return;
+	}
 	for (size_t i = 0; i < DEFAULT_ARGS + extra; i++)
 	{
 		free((void*)arguments[i]);
 	}
 	free(arguments);
+	arguments = NULL;
+	return;
 }
 
 static LPCSTR GetThreadUsername() {
@@ -348,4 +354,5 @@ BOOL LogPrivilegeAdjust(BOOL added, ULONG privilege) {
 
 	free(name);
 	FreeEventBaseArguments(arguments);
+	return TRUE;
 }
