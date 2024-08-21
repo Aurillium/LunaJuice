@@ -1,8 +1,11 @@
 #include "pch.h"
 #include <malloc.h>
+#include <stdio.h>
 #include <tlhelp32.h>
 #include <windows.h>
 #include <winternl.h>
+
+#include "debug.h"
 
 char* ConvertUnicodeStringToAnsi(const UNICODE_STRING& unicodeString) {
     // Determine the required buffer size
@@ -73,4 +76,24 @@ DWORD GetParentProcessId(DWORD pid) {
         if (hSnapshot != INVALID_HANDLE_VALUE && hSnapshot != NULL) CloseHandle(hSnapshot);
     }
     return ppid;
+}
+
+LPSTR OptimalSprintf(LPCSTR fmt, ...) {
+    va_list args, argsCopy;
+    va_start(args, fmt);
+    va_copy(argsCopy, args);
+
+    size_t bufferSize = vsnprintf(NULL, 0, fmt, args);
+    LPSTR buffer = (LPSTR)calloc(bufferSize + 1, sizeof(CHAR));
+    if (buffer == NULL) {
+        WRITELINE_DEBUG("Could not allocate space for buffer.");
+        return NULL;
+    }
+
+    vsprintf_s(buffer, bufferSize + 1, fmt, argsCopy);
+
+    va_end(argsCopy);
+    va_end(args);
+
+    return buffer;
 }
