@@ -42,6 +42,18 @@
     <ClInclude Include="functionlogs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="hookingv2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hookingv3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hookingv4.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hooking.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -60,6 +72,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="functionlogs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="hookingv2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="hookingv3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="hookingv4.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
