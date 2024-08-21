@@ -168,7 +168,6 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="functionlogs.h" />
     <ClInclude Include="hooks.h" />
-    <ClInclude Include="include\MinHook.h" />
     <ClInclude Include="messages.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="util.h" />
