@@ -1,5 +1,8 @@
 #include "pch.h"
 
+#include <malloc.h>
+#include <Windows.h>
+
 #include "debug.h"
 #include "functionlogs.h"
 #include "util.h"

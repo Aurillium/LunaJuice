@@ -1,4 +1,6 @@
 #pragma once
+#include <malloc.h>
+#include <stdio.h>
 #include <Windows.h>
 
 #include "util.h"
