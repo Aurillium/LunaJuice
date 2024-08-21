@@ -167,8 +167,11 @@
     <ClInclude Include="forbidden_headers.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="functionlogs.h" />
+    <ClInclude Include="hooking.h" />
+    <ClInclude Include="hookingv2.h" />
+    <ClInclude Include="hookingv3.h" />
+    <ClInclude Include="hookingv4.h" />
     <ClInclude Include="hooks.h" />
-    <ClInclude Include="include\MinHook.h" />
     <ClInclude Include="messages.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="util.h" />
@@ -177,6 +180,9 @@
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="events.cpp" />
     <ClCompile Include="functionlogs.cpp" />
+    <ClCompile Include="hookingv2.cpp" />
+    <ClCompile Include="hookingv3.cpp" />
+    <ClCompile Include="hookingv4.cpp" />
     <ClCompile Include="hooks.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

@@ -66,6 +66,7 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
         }
         WRITE_DEBUG("(hooked) ");
         NTSTATUS result = Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+        WRITELINE_DEBUG(result);
         WRITELINE_DEBUG("DATA: " << (char*)Buffer);
         LogStdin((LPCSTR)Buffer);
         return result;
@@ -114,7 +115,9 @@ HOOKDEF(ReadConsoleW, WINAPI, BOOL, (
         }
         WRITE_DEBUG("(hooked con w) ");
         BOOL result = Real_ReadConsoleW(hConsoleInput, lpBuffer, nNumberOfCharsToRead, lpNumberOfCharsRead, pInputControl);
-        WRITELINE_DEBUG("DATA: " << (wchar_t*)lpBuffer);
+#if _DEBUG
+        printf("DATA: %S\n", (wchar_t*)lpBuffer);
+#endif
         LogStdin((LPCSTR)lpBuffer);
         return result;
     }
