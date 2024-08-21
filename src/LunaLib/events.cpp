@@ -358,38 +358,25 @@ BOOL LogPrivilegeAdjust(BOOL added, ULONG privilege) {
 	return TRUE;
 }
 
-// This assumes you're using it correctly, passing types as strings
-// Handy: https://www.gnu.org/software/c-intro-and-ref/manual/html_node/Variable-Number-of-Arguments.html
-BOOL LogFunctionCall(LPCSTR signature, size_t size, ...) {
-	va_list ap;
-	va_start(ap, size);
-	// Get each type
-	LPSTR* types = (LPSTR*)calloc(size, sizeof(LPSTR));
-	void** values = (void**)calloc(size, sizeof(void*));
-	if (types == NULL || values == NULL) {
-		WRITELINE_DEBUG("Could not allocate type and value arrays.");
+// Take the already-formatted signature
+// This just reduces the weight of the library 
+// because we don't need to define it in the header
+BOOL LogFunctionCall(LPCSTR signature) {
+	if (signature == NULL) {
+		// Error handling here makes the macro a bit more useable
+		WRITELINE_DEBUG("Signature was NULL, could not send event.");
 		return FALSE;
 	}
-	for (size_t i = 0; i < size * 2; i++) {
-		if (i % 2 == 0) {
-			// Type
-			types[i / 2] = va_arg(ap, LPSTR);
-		} else {
-			// Value
-			values[i / 2] = va_arg(ap, void*);
-		}
+
+	LPCSTR* arguments = EventBaseArguments(1);
+	arguments[5] = signature;
+
+	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_FUNCTION_CALL, MSG_FUNCTION_CALL, NULL, 6, 0, arguments, NULL)) {
+		WRITELINE_DEBUG("Could not send event: " << GetLastError());
+		FreeEventBaseArguments(arguments);
+		return FALSE;
 	}
-	va_end(ap);
 
-	// Do this well
-	LPSTR firstFmtSignature = GetSignatureTemplate(signature);
-	FMT_SIGNATURE* fmtSignature = GetTypeSpecificSignature(firstFmtSignature, size, types);
-	LPSTR data = FormatFromSignatureInfo(fmtSignature, values);
-
-	WRITELINE_DEBUG(data);
-
-	free(fmtSignature);
-	free(firstFmtSignature);
-	free(types);
-	free(values);
+	FreeEventBaseArguments(arguments);
+	return TRUE;
 }
