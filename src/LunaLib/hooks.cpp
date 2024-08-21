@@ -28,6 +28,8 @@ HOOKDEF(MessageBoxA, WINAPI, BOOL, (HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, 
 
 // Privilege adjust
 HOOKDEF(RtlAdjustPrivilege, WINAPI, NTSTATUS, (IN ULONG Privilege, IN BOOL Enable, IN BOOL CurrentThread, OUT PULONG pPreviousState)) {
+    LOG_FUNCTION_CALL(RtlAdjustPrivilege, Privilege, Enable, CurrentThread, pPreviousState);
+
     LogPrivilegeAdjust(Enable, Privilege);
     WRITELINE_DEBUG("Detected priv adjust");
     NTSTATUS status = Real_RtlAdjustPrivilege(Privilege, Enable, CurrentThread, pPreviousState);
@@ -53,8 +55,6 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN ULONG                Length,
     IN PLARGE_INTEGER       ByteOffset OPTIONAL,
     IN PULONG               Key OPTIONAL)) {
-
-    GetSignatureTemplate(String_NtReadFile);
     
     LOG_FUNCTION_CALL(NtReadFile, FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
 
@@ -152,34 +152,40 @@ HOOKDEF(NtWriteFile, NTAPI, NTSTATUS, (
 
 // Open process
 HOOKDEF(OpenProcess, WINAPI, HANDLE, (IN DWORD dwDesiredAccess, IN BOOL bInheritHandle, IN DWORD dwProcessId)) {
-    // Return handle to own process
-    WRITELINE_DEBUG("Detected open process");
-    return Real_OpenProcess(dwDesiredAccess, bInheritHandle, GetCurrentProcessId());
+    LOG_FUNCTION_CALL(OpenProcess, dwDesiredAccess, bInheritHandle, dwProcessId);
+
+    // Too much output (~30386 lines)
+    //WRITELINE_DEBUG("Detected open process");
+    return Real_OpenProcess(dwDesiredAccess, bInheritHandle, dwProcessId);
 }
 
 // Remote threads
 HOOKDEF(CreateRemoteThread, WINAPI, HANDLE, (HANDLE hProcess, LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, LPDWORD lpThreadId)) {
-    // Create thread in our process
+    LOG_FUNCTION_CALL(CreateRemoteThread, hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
+    
     WRITELINE_DEBUG("Detected remote thread");
-    return Real_CreateRemoteThread(GetCurrentProcess(), lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
+    return Real_CreateRemoteThread(hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
 }
 HOOKDEF(CreateRemoteThreadEx, WINAPI, HANDLE, (HANDLE hProcess, LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList, LPDWORD lpThreadId)) {
-    // Create thread in our process
+    LOG_FUNCTION_CALL(CreateRemoteThreadEx, hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpAttributeList, lpThreadId);
+    
     WRITELINE_DEBUG("Detected remote thread");
-    return Real_CreateRemoteThreadEx(GetCurrentProcess(), lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpAttributeList, lpThreadId);
+    return Real_CreateRemoteThreadEx(hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpAttributeList, lpThreadId);
 }
 
 // Remote writes
 HOOKDEF(WriteProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPVOID lpBaseAddress, LPCVOID lpBuffer, SIZE_T nSize, SIZE_T* lpNumberofBytesWritten)) {
-    // Write to our process
+    LOG_FUNCTION_CALL(WriteProcessMemory, hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberofBytesWritten);
+
     WRITELINE_DEBUG("Detected process write");
-    return Real_WriteProcessMemory(GetCurrentProcess(), lpBaseAddress, lpBuffer, nSize, lpNumberofBytesWritten);
+    return Real_WriteProcessMemory(hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberofBytesWritten);
 }
 // Remote reads
 HOOKDEF(ReadProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize, SIZE_T* lpNumberOfBytesRead)) {
-    // Read from our process
-    WRITELINE_DEBUG("Detected process read");
-    return Real_ReadProcessMemory(GetCurrentProcess(), lpBaseAddress, lpBuffer, nSize, lpNumberOfBytesRead);
+    LOG_FUNCTION_CALL(ReadProcessMemory, hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberOfBytesRead);
+
+    //WRITELINE_DEBUG("Detected process read");
+    return Real_ReadProcessMemory(hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberOfBytesRead);
 }
 
 // High level process creation
