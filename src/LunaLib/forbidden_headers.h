@@ -23,10 +23,11 @@ extern "C" int _read(
 // https://github.com/AlionGreen/apc-injection/blob/main/NTAPI/main.c
 // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_io_status_block
 
+// The source labels all arguments as '_In_', but Windows does not
 typedef VOID(NTAPI* PIO_APC_ROUTINE)(
-	_In_ PVOID ApcContext,
-	_In_ PIO_STATUS_BLOCK IoStatusBlock,
-	_In_ ULONG Reserved);
+	PVOID ApcContext,
+	PIO_STATUS_BLOCK IoStatusBlock,
+	ULONG Reserved);
 
 
 // http://undocumented.ntinternals.net/index.html
@@ -66,6 +67,17 @@ extern "C" NTSYSAPI NTSTATUS NTAPI ZwReadFile(
 	IN ULONG                Length,
 	IN PLARGE_INTEGER       ByteOffset OPTIONAL,
 	IN PULONG               Key OPTIONAL);
+extern "C" NTSYSAPI NTSTATUS NtWriteFile(
+    IN HANDLE               FileHandle,
+    IN HANDLE               Event OPTIONAL,
+    IN PIO_APC_ROUTINE      ApcRoutine OPTIONAL,
+    IN PVOID                ApcContext OPTIONAL,
+    OUT PIO_STATUS_BLOCK    IoStatusBlock,
+    IN PVOID                Buffer,
+    IN ULONG                Length,
+    IN PLARGE_INTEGER       ByteOffset OPTIONAL,
+    IN PULONG               Key OPTIONAL
+);
 
 // Process creation
 // https://captmeelo.com/redteam/maldev/2022/05/10/ntcreateuserprocess.html

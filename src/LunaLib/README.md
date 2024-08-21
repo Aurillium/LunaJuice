@@ -22,6 +22,9 @@
 - Does not persist across child processes (LogRhythm will handle this? I could fix anyway)
     - Will attempt to fix via hooking
 
+### Message Text File
+- Must be manually compiled by right-clicking to regenerate headers
+
 ### Install Hook Version 3
 - Currently some errors:
     - Based on addresses, OpenProcess is a relative address error (instruction occurs at trampoline, address referenced is nearby)

@@ -4,39 +4,23 @@
 #include <Windows.h>
 #include <securitybaseapi.h>
 // Others
-#include <ntstatus.h>
 #include <iostream>
-
-#include <userenv.h>
-
-#include <psapi.h>
 #include <dbghelp.h>
 
-#include <wincred.h>
-
+#include "debug.h"
+#include "events.h"
 #include "hooks.h"
 
 #include "include/capstone/capstone.h"
 
+// This is needed in other functions too
 EXTERN_HOOK(NtReadFile);
-
-// Debug logs
-void LogLine(const char* message) {
-#if _DEBUG
-    std::cerr << message << std::endl;
-#endif
-}
-void Log(const char* message) {
-#if _DEBUG
-    std::cerr << message;
-#endif
-}
 
 // This may need improvement, unsure on stability
 bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void** originalFunction) {
     HMODULE hModule = GetModuleHandle(NULL);
     if (hModule == NULL) {
-        LogLine("Failed to get module handle");
+        WRITELINE_DEBUG("Failed to get module handle");
         return false;
     }
 
@@ -45,7 +29,7 @@ bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
     PIMAGE_IMPORT_DESCRIPTOR importDesc = (PIMAGE_IMPORT_DESCRIPTOR)ImageDirectoryEntryToData(hModule, TRUE, IMAGE_DIRECTORY_ENTRY_IMPORT, &size);
     // We need this to access DLL info
     if (importDesc == NULL) {
-        LogLine("Failed to get import descriptor");
+        WRITELINE_DEBUG("Failed to get import descriptor");
         return false;
     }
 
@@ -82,8 +66,8 @@ bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
                     VirtualProtect(pfn, sizeof(FARPROC), oldProtect, &oldProtect);
 
                     // Let the user know we succeeded
-                    Log("Successfully hooked ");
-                    LogLine(functionName);
+                    WRITE_DEBUG("Successfully hooked ");
+                    WRITELINE_DEBUG(functionName);
                     return true;
                 }
                 thunk++;
@@ -93,8 +77,8 @@ bool InstallHookV2(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
     }
 
     // :(
-    Log("Failed to hook ");
-    LogLine(functionName);
+    WRITE_DEBUG("Failed to hook ");
+    WRITELINE_DEBUG(functionName);
     return false;
 }
 
@@ -184,16 +168,16 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
     // Get the DLL the function is from
     HMODULE hModule = GetModuleHandleA(moduleName);
     if (hModule == NULL) {
-        Log("Failed to get module handle, failed to hook ");
-        LogLine(functionName);
+        WRITE_DEBUG("Failed to get module handle, failed to hook ");
+        WRITELINE_DEBUG(functionName);
         return false;
     }
 
     // Get target function address
     void* targetFunctionAddress = GetProcAddress(hModule, functionName);
     if (targetFunctionAddress == NULL) {
-        Log("Could not find target function, failed to hook ");
-        LogLine(functionName);
+        WRITE_DEBUG("Could not find target function, failed to hook ");
+        WRITELINE_DEBUG(functionName);
         return false;
     }
 
@@ -201,8 +185,8 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
     size_t prologueLength = GetFunctionPrologueLength(targetFunctionAddress);
     void* trampoline = VirtualAlloc(NULL, prologueLength + 14, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (trampoline == NULL) {
-        Log("Could not allocate trampoline, failed to hook ");
-        LogLine(functionName);
+        WRITE_DEBUG("Could not allocate trampoline, failed to hook ");
+        WRITELINE_DEBUG(functionName);
         return false;
     }
     // Copy first 14 bytes of function into beginning of trampoline
@@ -219,8 +203,8 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
     // Overwrite memory protection so we can write jump to hook
     DWORD oldProtect;
     if (!VirtualProtect(targetFunctionAddress, 14, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-        Log("Could change memory protection, failed to hook ");
-        LogLine(functionName);
+        WRITE_DEBUG("Could change memory protection, failed to hook ");
+        WRITELINE_DEBUG(functionName);
         return false;
     }
 
@@ -249,33 +233,31 @@ bool InstallHookV3(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFu
 
     // Rewrite old protections
     if (!VirtualProtect(targetFunctionAddress, 14, oldProtect, &oldProtect)) {
-        Log("Could restore memory protection, failed to hook ");
-        LogLine(functionName);
+        WRITE_DEBUG("Could restore memory protection, failed to hook ");
+        WRITELINE_DEBUG(functionName);
         return false;
     }
 
     // Send trampoline back as the original function
     *originalFunction = trampoline;
 
-#if _DEBUG
     // Debug info
     // NtReadFile is an example and function of interest
-    std::cout << "----------------------" << std::endl;
-    std::cout << "Function:             " << functionName << std::endl;
-    std::cout << "Hook function:        " << hookFunction << std::endl;
-    std::cout << "Original function:    " << *originalFunction << std::endl;
-    std::cout << "Trampoline address:   " << trampoline << std::endl;
-    std::cout << "Real NtReadFile:      " << (void*)Real_NtReadFile << std::endl;
-    std::cout << "Trampoline[20...]:    " << (void*)*(uintptr_t*)((BYTE*)trampoline + 20) << std::endl;
-    std::cout << "Target function addr: " << targetFunctionAddress << std::endl;
-    std::cout << "First jmp to:         " << (void*)*(uintptr_t*)((BYTE*)targetFunctionAddress + 2) << std::endl;
-    std::cout << "----------------------" << std::endl;
-#endif
+    WRITELINE_DEBUG("----------------------");
+    WRITELINE_DEBUG("Function:             " << functionName);
+    WRITELINE_DEBUG("Hook function:        " << hookFunction);
+    WRITELINE_DEBUG("Original function:    " << *originalFunction);
+    WRITELINE_DEBUG("Trampoline address:   " << trampoline);
+    WRITELINE_DEBUG("Real NtReadFile:      " << (void*)Real_NtReadFile);
+    WRITELINE_DEBUG("Trampoline[20...]:    " << (void*)*(uintptr_t*)((BYTE*)trampoline + 20));
+    WRITELINE_DEBUG("Target function addr: " << targetFunctionAddress);
+    WRITELINE_DEBUG("First jmp to:         " << (void*)*(uintptr_t*)((BYTE*)targetFunctionAddress + 2));
+    WRITELINE_DEBUG("----------------------");
 
     // Real equals the target address, should equal trampoline -- this is because global variable is not changed (why?)
 
-    Log("Successfully hooked ");
-    LogLine(functionName);
+    WRITE_DEBUG("Successfully hooked ");
+    WRITELINE_DEBUG(functionName);
 }
 
 
@@ -286,21 +268,19 @@ void InstallHooks() {
     EXTERN_HOOK(MessageBoxA);
     QUICK_HOOK("user32.dll", MessageBoxA);
 #endif
-    // Testing for now
-    EXTERN_HOOK(RtlAdjustPrivilege);
-    EXTERN_HOOK(WriteFile);
-    EXTERN_HOOK(ReadFile);
-    //EXTERN_HOOK(NtReadFile);
-    QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
-    QUICK_HOOK("kernel32.dll", WriteFile);
-    //QUICK_HOOK("kernel32.dll", ReadFile);
+    //EXTERN_HOOK(NtWriteFile);
     QUICK_HOOK_V3("ntdll.dll", NtReadFile);
+    //QUICK_HOOK_V3("ntdll.dll", NtWriteFile);
+    EXTERN_HOOK(ReadConsoleA);
+    EXTERN_HOOK(ReadConsoleW);
+    //QUICK_HOOK("kernel32.dll", ReadConsoleA);
+    //QUICK_HOOK("kernel32.dll", ReadConsoleW);
 
     // Privilege adjust
-    EXTERN_HOOK(AdjustTokenPrivileges);
+    EXTERN_HOOK(RtlAdjustPrivilege);
     EXTERN_HOOK(ZwAdjustPrivilegesToken);
     EXTERN_HOOK(NtAdjustPrivilegesToken);
-    QUICK_HOOK("kernelbase.dll", AdjustTokenPrivileges);
+    QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
     QUICK_HOOK("ntdll.dll", ZwAdjustPrivilegesToken);
     QUICK_HOOK("ntdll.dll", NtAdjustPrivilegesToken);
 
@@ -310,23 +290,25 @@ void InstallHooks() {
     EXTERN_HOOK(CreateRemoteThreadEx);
     EXTERN_HOOK(WriteProcessMemory);
     EXTERN_HOOK(ReadProcessMemory);
-    QUICK_HOOK("kernel32.dll", OpenProcess);
+    //QUICK_HOOK("kernel32.dll", OpenProcess);
     QUICK_HOOK("kernel32.dll", CreateRemoteThread);
     QUICK_HOOK("kernel32.dll", CreateRemoteThreadEx);
     QUICK_HOOK("kernel32.dll", WriteProcessMemory);
-    QUICK_HOOK("kernel32.dll", ReadProcessMemory);
+    //QUICK_HOOK("kernel32.dll", ReadProcessMemory);
 
     // Process start
     EXTERN_HOOK(CreateProcessW);
     EXTERN_HOOK(CreateProcessA);
     QUICK_HOOK("kernel32.dll", CreateProcessW);
     QUICK_HOOK("kernel32.dll", CreateProcessA);
+    EXTERN_HOOK(NtCreateUserProcess);
+    QUICK_HOOK_V3("ntdll.dll", NtCreateUserProcess);
 
     //QUICK_HOOK("msvcrt.dll", fgets);
     //QUICK_HOOK("msvcrt.dll", fgetws);
     //QUICK_HOOK("msvcrt.dll", _read);
 
-    std::cout << (void*)Real_NtReadFile << std::endl;
+    WRITELINE_DEBUG((void*)Real_NtReadFile);
 }
 
 // This code is run on injection
@@ -334,18 +316,23 @@ __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_fo
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        LogLine("Attached to process");
+        WRITELINE_DEBUG("Attached to process");
+        OpenLogger();
+        WRITELINE_DEBUG("Started logger!");
         InstallHooks();
+        WRITELINE_DEBUG("Installed hooks!");
         break;
     case DLL_THREAD_ATTACH:
         // These logs are quite verbose, so commented out even for testing by default
-        //LogLine("Attached to thread");
+        //WRITELINE_DEBUG("Attached to thread");
         break;
     case DLL_THREAD_DETACH:
-        //LogLine("Detached from thread");
+        //WRITELINE_DEBUG("Detached from thread");
         break;
     case DLL_PROCESS_DETACH:
-        LogLine("Detached from process");
+        WRITELINE_DEBUG("Detaching from process");
+        CloseLogger();
+        WRITELINE_DEBUG("Closed logger!");
         break;
     }
     return TRUE;

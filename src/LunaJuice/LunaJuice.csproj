@@ -7,10 +7,14 @@
     <Nullable>enable</Nullable>
     <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
     <Platforms>AnyCPU;x64</Platforms>
+    <PublishTrimmed>False</PublishTrimmed>
+	<PublishSingleFile>True</PublishSingleFile>
+	<SelfContained>False</SelfContained>
+	<RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\x64\Debug\LunaLib.dll" Link="LunaLib.dll" />
+    <EmbeddedResource Include="embed\LunaLib.dll" />
   </ItemGroup>
 
 </Project>
