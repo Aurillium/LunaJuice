@@ -23,10 +23,11 @@ extern "C" int _read(
 // https://github.com/AlionGreen/apc-injection/blob/main/NTAPI/main.c
 // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_io_status_block
 
+// The source labels all arguments as '_In_', but Windows does not
 typedef VOID(NTAPI* PIO_APC_ROUTINE)(
-	_In_ PVOID ApcContext,
-	_In_ PIO_STATUS_BLOCK IoStatusBlock,
-	_In_ ULONG Reserved);
+	PVOID ApcContext,
+	PIO_STATUS_BLOCK IoStatusBlock,
+	ULONG Reserved);
 
 
 // http://undocumented.ntinternals.net/index.html

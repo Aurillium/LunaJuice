@@ -27,6 +27,7 @@ ret calltype Hooked_##name##sig;
 
 #define HOOKDEF(name, calltype, ret, sig) \
 name##_t Real_##name; \
+LPCSTR String_##name = #ret " " #calltype " " #name #sig; \
 ret calltype Hooked_##name##sig
 
 // These variables cannot be static, no matter what Visual Studio says:
@@ -37,13 +38,13 @@ ret calltype Hooked_##name##sig
 HOOKHEAD(MessageBoxA, WINAPI, BOOL, (HWND, LPCSTR, LPCSTR, UINT));
 
 // I/O
-HOOKHEAD(WriteFile, WINAPI, BOOL, (HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED))
-HOOKHEAD(ReadFile, WINAPI, BOOL, (HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED))
 HOOKHEAD(NtReadFile, NTAPI, NTSTATUS, (HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext, PIO_STATUS_BLOCK, PVOID Buffer, ULONG Length, PLARGE_INTEGER ByteOffset, PULONG Key))
 HOOKHEAD(NtWriteFile, NTAPI, NTSTATUS, (IN HANDLE FileHandle, IN HANDLE Event OPTIONAL, IN PIO_APC_ROUTINE ApcRoutine OPTIONAL, IN PVOID ApcContext OPTIONAL, OUT PIO_STATUS_BLOCK IoStatusBlock, IN PVOID Buffer, IN ULONG Length, IN PLARGE_INTEGER ByteOffset OPTIONAL, IN PULONG Key OPTIONAL))
 //HOOKHEAD(fgets, __cdecl, char*, (char* str, int numChars, FILE* stream))
 //HOOKHEAD(fgetws, __cdecl, wchar_t*, (wchar_t* str, int numChars, FILE* stream))
 //HOOKHEAD(_read, __cdecl, int, (int const fd, void* const buffer, unsigned const buffer_size))
+HOOKHEAD(ReadConsoleA, WINAPI, BOOL, (IN HANDLE hConsoleInput, OUT LPVOID lpBuffer, IN DWORD nNumberOfCharsToRead, OUT LPDWORD lpNumberOfCharsRead, IN OPTIONAL PCONSOLE_READCONSOLE_CONTROL pInputControl))
+HOOKHEAD(ReadConsoleW, WINAPI, BOOL, (IN HANDLE hConsoleInput, OUT LPVOID lpBuffer, IN DWORD nNumberOfCharsToRead, OUT LPDWORD lpNumberOfCharsRead, IN OPTIONAL PCONSOLE_READCONSOLE_CONTROL pInputControl))
 
 // Privilege adjust
 HOOKHEAD(AdjustTokenPrivileges, NTAPI, BOOL, (HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, PDWORD))

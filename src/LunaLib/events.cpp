@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "debug.h"
+#include "functionlogs.h"
 #include "hooks.h"
 #include "util.h"
 
@@ -102,11 +103,17 @@ BOOL CloseLogger() {
 }
 // Call after freeing your own arguments to avoid memory leaks
 static void FreeEventBaseArguments(LPCSTR* arguments, size_t extra = 0) {
+	if (arguments == NULL) {
+		// Already done
+		return;
+	}
 	for (size_t i = 0; i < DEFAULT_ARGS + extra; i++)
 	{
 		free((void*)arguments[i]);
 	}
 	free(arguments);
+	arguments = NULL;
+	return;
 }
 
 static LPCSTR GetThreadUsername() {
@@ -348,4 +355,28 @@ BOOL LogPrivilegeAdjust(BOOL added, ULONG privilege) {
 
 	free(name);
 	FreeEventBaseArguments(arguments);
+	return TRUE;
+}
+
+// Take the already-formatted signature
+// This just reduces the weight of the library 
+// because we don't need to define it in the header
+BOOL LogFunctionCall(LPCSTR signature) {
+	if (signature == NULL) {
+		// Error handling here makes the macro a bit more useable
+		WRITELINE_DEBUG("Signature was NULL, could not send event.");
+		return FALSE;
+	}
+
+	LPCSTR* arguments = EventBaseArguments(1);
+	arguments[5] = signature;
+
+	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_FUNCTION_CALL, MSG_FUNCTION_CALL, NULL, 6, 0, arguments, NULL)) {
+		WRITELINE_DEBUG("Could not send event: " << GetLastError());
+		FreeEventBaseArguments(arguments);
+		return FALSE;
+	}
+
+	FreeEventBaseArguments(arguments);
+	return TRUE;
 }
