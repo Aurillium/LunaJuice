@@ -66,7 +66,6 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
         }
         WRITE_DEBUG("(hooked) ");
         NTSTATUS result = Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
-        WRITELINE_DEBUG(result);
         WRITELINE_DEBUG("DATA: " << (char*)Buffer);
         LogStdin((LPCSTR)Buffer);
         return result;
@@ -138,14 +137,14 @@ HOOKDEF(NtWriteFile, NTAPI, NTSTATUS, (
     IN  PLARGE_INTEGER   ByteOffset OPTIONAL,
     IN  PULONG           Key OPTIONAL)) {
     if (FileHandle == GetStdHandle(STD_OUTPUT_HANDLE)) {
-        WRITE_DEBUG("(hooked) ");
+        //WRITE_DEBUG("(hooked) ");
         NTSTATUS result = Real_NtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
-        WRITELINE_DEBUG("STDOUT DATA: " << (char*)Buffer);
+        //WRITELINE_DEBUG("STDOUT DATA: " << (char*)Buffer);
         LogStdout((LPCSTR)Buffer);
         return result;
     } else if (FileHandle == GetStdHandle(STD_ERROR_HANDLE)) {
         NTSTATUS result = Real_NtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
-        WRITELINE_DEBUG("STDERR DATA: " << (char*)Buffer);
+        //WRITELINE_DEBUG("STDERR DATA: " << (char*)Buffer);
         LogStderr((LPCSTR)Buffer);
         return result;
     } else {

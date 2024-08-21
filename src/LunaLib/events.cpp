@@ -228,13 +228,27 @@ BOOL LogStdin(LPCSTR content) {
 		WRITELINE_DEBUG("An error occurred while collecting base arguments.");
 		return FALSE;
 	}
-	arguments[5] = content;
+	// Find carriage return; this denotes end of input
+	const char* position = strchr(content, '\r');
+	size_t length = position - content;
+	LPSTR buffer = (LPSTR)calloc(position - content + 1, sizeof(CHAR));
+	if (buffer == NULL) {
+		WRITELINE_DEBUG("Could not allocate space for pretty stdin text, falling back to default buffer.");
+		arguments[5] = content;
+	} else {
+		memcpy_s(buffer, length, content, length);
+		arguments[5] = buffer;
+	}
+
 	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_STANDARD_FILE, MSG_STDIN_READ, NULL, 6, 0, arguments, NULL)) {
 		WRITELINE_DEBUG("Could not send event: " << GetLastError());
 		FreeEventBaseArguments(arguments);
 		return FALSE;
 	}
 	FreeEventBaseArguments(arguments);
+	if (buffer != NULL) {
+		free(buffer);
+	}
 	return TRUE;
 }
 

@@ -12,19 +12,16 @@
 
 #include "include/capstone/capstone.h"
 
-// This is needed in other functions too
-EXTERN_HOOK(NtReadFile);
-
-
 // Install the hooks
 void InstallHooks() {
 #if _DEBUG
     EXTERN_HOOK(MessageBoxA);
     QUICK_HOOK_V4("user32.dll", MessageBoxA);
 #endif
-    //EXTERN_HOOK(NtWriteFile);
-    //QUICK_HOOK("ntdll.dll", NtReadFile);
-    //QUICK_HOOK_V3("ntdll.dll", NtWriteFile);
+    EXTERN_HOOK(NtReadFile);
+    EXTERN_HOOK(NtWriteFile);
+    QUICK_HOOK_V3("ntdll.dll", NtReadFile);
+    //QUICK_HOOK_V3("ntdll.dll", NtWriteFile); // Odd outputs, unreliable
     EXTERN_HOOK(ReadConsoleA);
     EXTERN_HOOK(ReadConsoleW);
     QUICK_HOOK_V4("kernel32.dll", ReadConsoleA);
@@ -35,8 +32,8 @@ void InstallHooks() {
     EXTERN_HOOK(ZwAdjustPrivilegesToken);
     EXTERN_HOOK(NtAdjustPrivilegesToken);
     QUICK_HOOK_V4("ntdll.dll", RtlAdjustPrivilege);
-    QUICK_HOOK_V3("ntdll.dll", ZwAdjustPrivilegesToken);
-    QUICK_HOOK_V3("ntdll.dll", NtAdjustPrivilegesToken);
+    //QUICK_HOOK_V3("ntdll.dll", ZwAdjustPrivilegesToken); // Broken
+    //QUICK_HOOK_V3("ntdll.dll", NtAdjustPrivilegesToken); // Broken
 
     // Remote processes
     EXTERN_HOOK(OpenProcess);
