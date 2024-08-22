@@ -28,6 +28,6 @@
 ### Install Hook Version 3
 - Currently some errors:
     - Based on addresses, OpenProcess is a relative address error (instruction occurs at trampoline, address referenced is nearby)
-    - Unsure of CreateProcessW error, probably similar
+    - Unsure of CreateProcessW error, probably similar -- FIXED: was still inserting jump a static 14 bytes after prologue, negating use of prologue length
     - SmartTrampoline will fix at least OpenProcess
 - For now V3 works on functions of interest that V2 does not, so sticking with V2 as the default but adding V3
