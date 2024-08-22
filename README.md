@@ -1,5 +1,7 @@
 # LunaJuice
 
+![LunaJuice_240](https://github.com/user-attachments/assets/59c77679-0a35-412b-b7e5-e0913248e204)
+
 A tool to subdue and monitor suspicious processes.
 
 [Documentation goes here](https://github.com/Aurillium/LunaJuice/wiki) as updating this file requires a PR and I can't exclude it.
