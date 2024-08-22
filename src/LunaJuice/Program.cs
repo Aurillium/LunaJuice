@@ -50,6 +50,9 @@ class Program
     // (No I could not find the real constant)
     const uint INFINITE = 0xffffffff;
 
+    private const int STD_OUTPUT_HANDLE = -11;
+    private const uint ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;
+
     [StructLayout(LayoutKind.Sequential)]
     struct LUID
     {
@@ -172,6 +175,16 @@ class Program
     [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
     private static extern bool WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
 
+
+    // Import the SetConsoleMode and GetConsoleMode functions from kernel32.dll
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint mode);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint mode);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GetStdHandle(int nStdHandle);
 
     static void ImpersonateLowPrivilegeUser(IntPtr hToken)
     {
@@ -326,10 +339,39 @@ class Program
         Console.WriteLine("DLL injected successfully.");
     }
 
-    static void Main(string[] args)
+    static void DisplayBanner()
     {
+        // Get the handle to the standard output
+        IntPtr handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (handle == IntPtr.Zero)
+        {
+            Console.WriteLine("Error getting standard output handle.");
+            return;
+        }
+
+        // Get the current console mode
+        if (!GetConsoleMode(handle, out uint mode))
+        {
+            Console.WriteLine("Error getting console mode.");
+            return;
+        }
+
+        // Enable virtual terminal processing
+        mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        if (!SetConsoleMode(handle, mode))
+        {
+            Console.WriteLine("Error setting console mode.");
+            return;
+        }
+
         // Print icon
         Console.WriteLine("\n\u001b[49m       \u001b[49;38;2;134;134;213m▄\u001b[48;2;124;124;213m▀\u001b[49;38;2;124;124;213m▀              \u001b[0m\r\n\u001b[49m       \u001b[48;2;134;134;213;38;2;124;124;213m▀\u001b[49m                \u001b[0m\r\n\u001b[49m     \u001b[48;2;124;124;213;38;2;137;137;225m▀█▄█████████\u001b[49m▄ \u001b[49m     \u001b[0m\r\n\u001b[49m     \u001b[48;2;124;124;213m  \u001b[48;2;158;158;249m       \u001b[38;2;174;174;250m▄    \u001b[49m     \u001b[0m\r\n\u001b[49m     \u001b[48;2;124;124;213m  \u001b[48;2;158;158;249m \u001b[38;2;174;174;250m▀\u001b[38;2;140;140;232m▄██▀▀█▄ \u001b[38;2;174;174;250m▀ \u001b[49m     \u001b[0m                ,--.                                ,--.        ,--.              \r\n\u001b[49m     \u001b[48;2;124;124;213m  \u001b[48;2;158;158;249m  \u001b[48;2;140;140;232m  \u001b[48;2;158;158;249m \u001b[38;2;174;174;250m▀  \u001b[38;2;140;140;232m▀   \u001b[49m     \u001b[0m                |  |   ,--.,--.,--,--,  ,--,--.     |  |,--.,--.`--' ,---. ,---.\r\n\u001b[49m     \u001b[48;2;124;124;213m  \u001b[48;2;158;158;249;38;2;174;174;250m▀ \u001b[48;2;140;140;232m  \u001b[48;2;158;158;249m    \u001b[38;2;140;140;232m▄ \u001b[38;2;174;174;250m▄ \u001b[49m     \u001b[0m                |  |   |  ||  ||      \\' ,-.  |,--. |  ||  ||  |,--.| .--'| .-. : \r\n\u001b[49m     \u001b[48;2;124;124;213m  \u001b[48;2;158;158;249m  \u001b[38;2;140;140;232m▀██▄▄█▀   \u001b[49m     \u001b[0m                |  '--.'  ''  '|  ||  |\\ '-'  ||  '-'  /'  ''  '|  |\\ `--.\\   --.\r\n\u001b[49m     \u001b[48;2;124;124;213m  \u001b[48;2;158;158;249m \u001b[38;2;174;174;250m▀ \u001b[38;2;140;140;232m▄   ▄ \u001b[38;2;174;174;250m▀  \u001b[49m     \u001b[0m                `-----' `----' `--''--' `--`--' `-----'  `----' `--' `---' `----' \r\n\u001b[49m    \u001b[49;38;2;174;174;250m▄\u001b[48;2;124;124;213m  \u001b[48;2;158;158;249m   \u001b[48;2;140;140;232m \u001b[38;2;158;158;249m▀█▀▄██\u001b[48;2;174;174;250m▀█\u001b[49;38;2;174;174;250m▄\u001b[49m▄\u001b[49;38;2;223;113;38m  \u001b[0m\r\n\u001b[49m \u001b[49;38;2;174;174;250m▄\u001b[48;2;188;188;251m▄█▀\u001b[48;2;124;124;213m  \u001b[48;2;158;158;249m            █\u001b[48;2;188;188;251m▄█\u001b[49m  \u001b[0m\r\n\u001b[49m  \u001b[38;2;174;174;250m▀▀███\u001b[48;2;188;188;251m▀█▄████▀███\u001b[49m▀\u001b[49;38;2;188;188;251m▀\u001b[38;2;174;174;250m▀\u001b[0m\r\n");
+
+    }
+
+    static void Main(string[] args)
+    {
+        DisplayBanner();
 
         int targetProcessId = 0;
         if (args.Length != 1)
