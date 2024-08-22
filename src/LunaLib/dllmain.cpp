@@ -62,8 +62,12 @@ void InstallHooks() {
     WRITELINE_DEBUG((void*)Real_NtReadFile);
 }
 
+__declspec(dllexport) BOOL APIENTRY LoadConfig() {
+    return FALSE;
+}
+
 // This code is run on injection
-__declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) {
+__declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
