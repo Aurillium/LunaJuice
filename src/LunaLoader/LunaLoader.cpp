@@ -143,7 +143,8 @@ static BOOL InjectDLL(int targetProcessId)
 
     // Prepare to take the DLL out
     CHAR dllPath[MAX_PATH];
-    GetTempPath2A(MAX_PATH, dllPath);
+    GetTempPathA(MAX_PATH, dllPath);
+    GetTempFileNameA(dllPath, "", 0, dllPath);
 
     HRSRC hResource = FindResource(hInstance, MAKEINTRESOURCE(IDR_DLL1), RT_RCDATA);
     if (!hResource) {
@@ -264,12 +265,12 @@ int main(int argc, char* argv[])
     DWORD targetProcessId = 0;
     if (argc < 2)
     {
-        std::cerr << "Usage: DropPrivileges <ProcessId>";
+        std::cerr << "Usage: DropPrivileges <ProcessId>" << std::endl;
 #if _DEBUG
         // Mimikatz for now
-        std::cout << "No arguments, attempting to inject to Mimikatz for debug.";
-        DWORD pid = FindPidByName(L"mimikatz");
-        if (!pid) {
+        std::cout << "No arguments, attempting to inject to Mimikatz for debug." << std::endl;
+        targetProcessId = FindPidByName(L"mimikatz.exe");
+        if (!targetProcessId) {
             DISP_ERROR("Mimikatz not found.");
             return 1;
         } else {
@@ -301,18 +302,7 @@ int main(int argc, char* argv[])
     //DropAllPrivileges(targetProcessId);
     DISP_LOG("Injecting monitor DLL...");
     InjectDLL(targetProcessId);
-    DISP_LOG("Dropped privileges for process ID " << targetProcessId << "}");
+    DISP_LOG("Dropped privileges for process ID " << targetProcessId << ".");
 
     return 0;
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
