@@ -1,4 +1,4 @@
-// LunaLoader.cpp : This file contains the 'main' function. Program execution begins and ends there.
+﻿// LunaLoader.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
 #include <Windows.h>
@@ -43,6 +43,34 @@ const char* privilegesToRemove[] = {
         // Unsolicited input?
 };
 const DWORD SE_PRIVILEGE_DISABLED = 0x00000000;
+
+const LPCWSTR juiceIcon[] = {
+    L"\n\x1b[49m       \x1b[49;38;2;134;134;213m▄\x1b[48;2;124;124;213m▀\x1b[49;38;2;124;124;213m▀              \x1b[0m",
+    L"\x1b[49m       \x1b[48;2;134;134;213;38;2;124;124;213m▀\x1b[49m                \x1b[0m",
+    L"\x1b[49m     \x1b[48;2;124;124;213;38;2;137;137;225m▀█▄█████████\x1b[49m▄ \x1b[49m     \x1b[0m",
+    L"\x1b[49m     \x1b[48;2;124;124;213m  \x1b[48;2;158;158;249m       \x1b[38;2;174;174;250m▄    \x1b[49m     \x1b[0m",
+    L"\x1b[49m     \x1b[48;2;124;124;213m  \x1b[48;2;158;158;249m \x1b[38;2;174;174;250m▀\x1b[38;2;140;140;232m▄██▀▀█▄ \x1b[38;2;174;174;250m▀ \x1b[49m     \x1b[0m",
+    L"\x1b[49m     \x1b[48;2;124;124;213m  \x1b[48;2;158;158;249m  \x1b[48;2;140;140;232m  \x1b[48;2;158;158;249m \x1b[38;2;174;174;250m▀  \x1b[38; 2; 140; 140; 232m▀   \x1b[49m     \x1b[0m",
+    L"\x1b[49m     \x1b[48;2;124;124;213m  \x1b[48;2;158;158;249;38;2;174;174;250m▀ \x1b[48;2;140;140;232m  \x1b[48;2;158;158;249m    \x1b[38;2;140;140;232m▄ \x1b[38;2;174;174;250m▄ \x1b[49m     \x1b[0m",
+    L"\x1b[49m     \x1b[48;2;124;124;213m  \x1b[48;2;158;158;249m  \x1b[38;2;140;140;232m▀██▄▄█▀   \x1b[49m     \x1b[0m",
+    L"\x1b[49m     \x1b[48;2;124;124;213m  \x1b[48;2;158;158;249m \x1b[38;2;174;174;250m▀ \x1b[38;2;140;140;232m▄   ▄ \x1b[38;2;174;174;250m▀  \x1b[49m     \x1b[0m",
+    L"\x1b[49m    \x1b[49;38;2;174;174;250m▄\x1b[48;2;124;124;213m  \x1b[48;2;158;158;249m   \x1b[48;2;140;140;232m \x1b[38;2;158;158;249m▀█▀▄██\x1b[48;2;174;174;250m▀█\x1b[49;38;2;174;174;250m▄\x1b[49m▄\x1b[49;38;2;223;113;38m  \x1b[0m",
+    L"\x1b[49m \x1b[49;38;2;174;174;250m▄\x1b[48;2;188;188;251m▄█▀\x1b[48;2;124;124;213m  \x1b[48;2;158;158;249m            █\x1b[48;2;188;188;251m▄█\x1b[49m  \x1b[0m",
+    L"\x1b[49m  \x1b[38;2;174;174;250m▀▀███\x1b[48;2;188;188;251m▀█▄████▀███\x1b[49m▀\x1b[49;38;2;188;188;251m▀\x1b[38;2;174;174;250m▀\x1b[0m\x1b[0m"
+};
+const LPCWSTR textArt[] = {
+    LR"(,--.                                ,--.        ,--.             )",
+    LR"(|  |   ,--.,--.,--, --, ,--,--.     |  |,--.,--.`--' ,---. ,---. )",
+    LR"(|  |   |  ||  ||      \' ,-.  |,--. |  ||  ||  |,--.| .--'| .-. :)",
+    LR"(|  '--.'  ''  '|  ||  |\ '-'  ||  '-'  /'  ''  '|  |\ `--.\   --.)",
+    LR"(`-----' `----' `--''--' `--`--' `-----'  `----' `--' `---' `----')"
+};
+// The printed lengths of both graphics
+// Do not use juiceLength for buffer sizes
+const size_t juiceLength = 24;
+const size_t textLength = 66;
+// The index of the icon that the text starts
+const size_t textStart = 4;
 
 // TODO: Can probably do all privileges at once now
 static BOOL DropAllPrivileges(int targetProcessId)
@@ -221,12 +249,12 @@ static BOOL InjectDLL(int targetProcessId)
 
     CloseHandle(hThread);
     CloseHandle(hProcess);
-    std::cout << "DLL injected successfully.";
+    DISP_LOG("DLL injected successfully.");
 
     return TRUE;
 }
 
-DWORD FindPidByName(LPCWSTR name) {
+DWORD FindPidByName(LPCSTR name) {
     // Take a snapshot of all processes in the system
     HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hProcessSnap == INVALID_HANDLE_VALUE) {
@@ -248,7 +276,7 @@ DWORD FindPidByName(LPCWSTR name) {
     // Iterate over the processes
     do {
         // Compare the process name
-        if (!_wcsicmp(pe32.szExeFile, name)) {
+        if (!strcmp(pe32.szExeFile, name)) {
             // Process found, return the process ID
             CloseHandle(hProcessSnap);
             return pe32.th32ProcessID;
@@ -260,6 +288,102 @@ DWORD FindPidByName(LPCWSTR name) {
     return 0;
 }
 
+BOOL PrintBanner() {
+
+    // Get the handle to the standard output
+    HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hStdout == NULL)
+    {
+        DISP_WINERROR("Error getting standard output handle.");
+        return FALSE;
+    }
+
+    DWORD mode;
+    // Get the current console mode
+    if (!GetConsoleMode(hStdout, &mode))
+    {
+        DISP_WINERROR("Error getting console mode.");
+        return FALSE;
+    }
+
+    // Enable virtual terminal processing
+    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    if (!SetConsoleMode(hStdout, mode))
+    {
+        DISP_WINERROR("Error setting console mode.");
+        return FALSE;
+    }
+
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    size_t columns, rows;
+    GetConsoleScreenBufferInfo(hStdout, &csbi);
+    columns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+    rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+
+    // If there's room, print icon
+    if (columns > juiceLength) {
+        if (columns > juiceLength + 4 + textLength) {
+            // Centre the text to juice
+            for (size_t i = 0; i < sizeof(juiceIcon) / sizeof(LPCWSTR); i++)
+            {
+                bool textPrinting = i >= textStart && i < textStart + sizeof(textArt) / sizeof(LPCWSTR);
+                size_t textIndex = i - textStart;
+                size_t juiceRowLength = lstrlenW(juiceIcon[i]);
+                // Cap padding at 24
+                size_t padding = min(
+                    // Use the render length for the spacing, but real length for the buffer
+                    (columns - juiceLength - textLength) / 2 - 2,
+                    24
+                );
+                // +2 for line endings
+                size_t totalLength = juiceRowLength + (textPrinting ? textLength + padding : 0) + 2;
+                // +1 for null byte
+                LPWSTR buffer = (LPWSTR)calloc(totalLength + 1, sizeof(WCHAR));
+                // Fall back to default if we can't get the icon to work
+                if (buffer == NULL) {
+                    DISP_ERROR("Icon/title render failed.");
+                    goto default_message;
+                }
+                lstrcatW(buffer, juiceIcon[i]);
+                if (textPrinting) {
+                    for (size_t i = juiceRowLength; i < padding + juiceRowLength; i++) {
+                        buffer[i] = L' ';
+                    }
+                    lstrcatW(buffer, textArt[textIndex]);
+                }
+                buffer[totalLength - 2] = L'\r';
+                buffer[totalLength - 1] = L'\n';
+                WriteConsoleW(hStdout, buffer, totalLength, NULL, NULL);
+                free(buffer);
+            }
+            std::cout << std::endl;
+        } else {
+            // Print just the juice icon
+            for (size_t i = 0; i < sizeof(juiceIcon) / sizeof(LPCWSTR); i++)
+            {
+                size_t juiceRowLength = lstrlenW(juiceIcon[i]);
+                // +2 for line endings, +1 for null byte
+                LPWSTR buffer = (LPWSTR)calloc(juiceRowLength + 3, sizeof(WCHAR));
+                if (buffer == NULL) {
+                    DISP_ERROR("Icon render failed.");
+                    goto default_message;
+                }
+                lstrcatW(buffer, juiceIcon[i]);
+                buffer[juiceRowLength] = L'\r';
+                buffer[juiceRowLength + 1] = L'\n';
+                WriteConsoleW(hStdout, buffer, juiceRowLength + 2, NULL, NULL);
+                free(buffer);
+            }
+            std::cout << std::endl << "   =*= LunaJuice =*=" << std::endl << std::endl;
+        }
+    } else {
+        default_message:
+        std::cout << "=*= Welcome to LunaJuice! =*=" << std::endl;
+    }
+
+    return TRUE;
+}
+
 int main(int argc, char* argv[])
 {
     DWORD targetProcessId = 0;
@@ -269,7 +393,7 @@ int main(int argc, char* argv[])
 #if _DEBUG
         // Mimikatz for now
         std::cout << "No arguments, attempting to inject to Mimikatz for debug." << std::endl;
-        targetProcessId = FindPidByName(L"mimikatz.exe");
+        targetProcessId = FindPidByName("mimikatz.exe");
         if (!targetProcessId) {
             DISP_ERROR("Mimikatz not found.");
             return 1;
@@ -284,15 +408,17 @@ int main(int argc, char* argv[])
         try {
             targetProcessId = std::stoi(argv[1]);
         }
-        catch (const std::invalid_argument& e) {
+        catch (const std::invalid_argument&) {
             DISP_ERROR("The input '" << argv[1] << "' is not a valid integer." << std::endl);
             return 1;  // Return an error code
         }
-        catch (const std::out_of_range& e) {
+        catch (const std::out_of_range&) {
             DISP_ERROR("The input '" << argv[1] << "' must be above 0 and be a valid PID." << std::endl);
             return 1;  // Return an error code
         }
     }
+
+    PrintBanner();
 
     DISP_LOG("Obtaining debug privilege...");
     EnableDebugPrivilege();
