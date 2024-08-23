@@ -4,16 +4,14 @@
 #include <Windows.h>
 #include <errhandlingapi.h>
 #include <iostream>
-#include <string>
-#include <stdexcept>
-#include <TlHelp32.h>
 
-
+#include "arguments.h"
+#include "output.h"
 #include "resource.h"
+#include "util.h"
 
-#define DISP_WINERROR(message) std::cerr << message << ": " << GetLastError() << std::endl
-#define DISP_ERROR(message) std::cerr << message << "." << std::endl;
-#define DISP_LOG(message) std::cout << message << std::endl;
+bool verboseEnabled = false;
+
 
 const char* privilegesToRemove[] = {
         "SeDebugPrivilege",
@@ -267,74 +265,24 @@ static BOOL InjectDLL(int targetProcessId)
     return TRUE;
 }
 
-DWORD FindPidByName(LPCSTR name) {
-    // Take a snapshot of all processes in the system
-    HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (hProcessSnap == INVALID_HANDLE_VALUE) {
-        std::cerr << "Failed to create process snapshot." << std::endl;
-        return 0;
-    }
-
-    PROCESSENTRY32 pe32;
-    pe32.dwSize = sizeof(PROCESSENTRY32);
-
-    // Retrieve information about the first process
-    // Only supports wide strings
-    if (!Process32First(hProcessSnap, &pe32)) {
-        std::cerr << "Failed to retrieve the first process." << std::endl;
-        CloseHandle(hProcessSnap);
-        return 0;
-    }
-
-    // Iterate over the processes
-    do {
-        // Compare the process name
-        if (!strcmp(pe32.szExeFile, name)) {
-            // Process found, return the process ID
-            CloseHandle(hProcessSnap);
-            return pe32.th32ProcessID;
-        }
-    } while (Process32Next(hProcessSnap, &pe32));
-
-    // Process not found
-    CloseHandle(hProcessSnap);
-    return 0;
-}
-
-BOOL PrintBanner() {
-
-    // Get the handle to the standard output
-    HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hStdout == NULL)
-    {
-        DISP_WINERROR("Error getting standard output handle.");
-        return FALSE;
-    }
-
-    DWORD mode;
-    // Get the current console mode
-    if (!GetConsoleMode(hStdout, &mode))
-    {
-        DISP_WINERROR("Error getting console mode.");
-        return FALSE;
-    }
-
-    // Enable virtual terminal processing
-    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    if (!SetConsoleMode(hStdout, mode))
-    {
-        DISP_WINERROR("Error setting console mode.");
-        return FALSE;
-    }
+BOOL PrintBanner(HANDLE hStdout) {
 
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     size_t columns, rows;
-    GetConsoleScreenBufferInfo(hStdout, &csbi);
-    columns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-    rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+    if (hStdout != NULL) {
+        GetConsoleScreenBufferInfo(hStdout, &csbi);
+        columns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+        rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+    } else {
+        columns = 0;
+        rows = 0;
+        // Don't rely on the handle
+        goto default_message;
+    }
 
     // If there's room, print icon
     if (columns > juiceLength) {
+        // Print the banner or icon
         if (columns > juiceLength + 4 + textLength) {
             // Centre the text to juice
             for (size_t i = 0; i < sizeof(juiceIcon) / sizeof(LPCWSTR); i++)
@@ -354,7 +302,7 @@ BOOL PrintBanner() {
                 LPWSTR buffer = (LPWSTR)calloc(totalLength + 1, sizeof(WCHAR));
                 // Fall back to default if we can't get the icon to work
                 if (buffer == NULL) {
-                    DISP_ERROR("Icon/title render failed.");
+                    DISP_ERROR("Icon/title render failed");
                     goto default_message;
                 }
                 lstrcatW(buffer, juiceIcon[i]);
@@ -378,7 +326,7 @@ BOOL PrintBanner() {
                 // +2 for line endings, +1 for null byte
                 LPWSTR buffer = (LPWSTR)calloc(juiceRowLength + 3, sizeof(WCHAR));
                 if (buffer == NULL) {
-                    DISP_ERROR("Icon render failed.");
+                    DISP_ERROR("Icon render failed");
                     goto default_message;
                 }
                 lstrcatW(buffer, juiceIcon[i]);
@@ -399,49 +347,62 @@ BOOL PrintBanner() {
 
 int main(int argc, char* argv[])
 {
-    DWORD targetProcessId = 0;
-    if (argc < 2)
+    // Get the handle to the standard output
+    // We're going to try enable nice ANSI formatting
+    HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hStdout == NULL)
+        DISP_WINERROR("Error getting standard output handle, some formatting may not work");
+    else {
+        DWORD mode;
+        // Get the current console mode
+        if (!GetConsoleMode(hStdout, &mode))
+            DISP_WINERROR("Error getting console mode, some formatting may not work");
+        // Enable virtual terminal processing
+        mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        if (!SetConsoleMode(hStdout, mode))
+            DISP_WINERROR("Error setting console mode, some formatting may not work");
+    }
+
+    // Process arguments
+    LUNA_ARGUMENTS arguments = GetArguments(argc, argv);
+
+    if (arguments.pid == 0)
     {
-        std::cerr << "Usage: DropPrivileges <ProcessId>" << std::endl;
 #if _DEBUG
-        // Mimikatz for now
+        // Mimikatz for testing
         std::cout << "No arguments, attempting to inject to Mimikatz for debug." << std::endl;
-        targetProcessId = FindPidByName("mimikatz.exe");
-        if (!targetProcessId) {
-            DISP_ERROR("Mimikatz not found.");
+        arguments.pid = FindPidByName("mimikatz.exe");
+        if (!arguments.pid) {
+            DISP_ERROR("Mimikatz not found");
             return 1;
         } else {
             std::cout << "Injecting into Mimikatz." << std::endl;
         }
 #else
+        DisplayUsage();
         return 1;
 #endif
     }
-    else {
-        try {
-            targetProcessId = std::stoi(argv[1]);
-        }
-        catch (const std::invalid_argument&) {
-            DISP_ERROR("The input '" << argv[1] << "' is not a valid integer." << std::endl);
-            return 1;  // Return an error code
-        }
-        catch (const std::out_of_range&) {
-            DISP_ERROR("The input '" << argv[1] << "' must be above 0 and be a valid PID." << std::endl);
-            return 1;  // Return an error code
-        }
-    }
 
-    PrintBanner();
+    if (!PrintBanner(hStdout))
+        DISP_WARN("Could not display banner");
+
+    DISP_LOG("Targetting " << arguments.pid);
 
     DISP_LOG("Obtaining debug privilege...");
-    EnableDebugPrivilege();
+    if (!EnableDebugPrivilege())
+        DISP_ERROR("Could not obtain debug privilege (cannot modify process)");
 
     // This interferes with legitimate processes, don't do it for now
     //Console.WriteLine("Dropping all privileges...");
     //DropAllPrivileges(targetProcessId);
+    //DISP_LOG("Dropped privileges for process ID " << targetProcessId << ".");
+
     DISP_LOG("Injecting monitor DLL...");
-    InjectDLL(targetProcessId);
-    DISP_LOG("Dropped privileges for process ID " << targetProcessId << ".");
+    if (!InjectDLL(arguments.pid))
+        DISP_ERROR("Could not inject DLL into target");
+
+    RESET_FORMAT;
 
     return 0;
 }
