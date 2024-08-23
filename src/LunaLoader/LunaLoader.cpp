@@ -233,13 +233,26 @@ static BOOL InjectDLL(int targetProcessId)
 
     // This block creates a remote thread to load the DLL
     HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
-    // Could improve this bt using LoadLibraryEx and passing a handle?
+    if (hKernel32 == NULL) {
+        DISP_WINERROR("Could not find kernel32 DLL");
+        VirtualFreeEx(hProcess, allocMemAddress, 0, MEM_RELEASE);
+        CloseHandle(hProcess);
+        return FALSE;
+    }
+    // Could improve this by using LoadLibraryEx and passing a handle? -- No, it's reserved for future use
     FARPROC hLoadLibrary = GetProcAddress(hKernel32, "LoadLibraryA");
+    if (hKernel32 == NULL) {
+        DISP_WINERROR("Could not find kernel32 DLL");
+        VirtualFreeEx(hProcess, allocMemAddress, 0, MEM_RELEASE);
+        CloseHandle(hProcess);
+        return FALSE;
+    }
     HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)hLoadLibrary, allocMemAddress, 0, NULL);
 
     if (hThread == NULL)
     {
         DISP_WINERROR("Failed to create remote thread");
+        VirtualFreeEx(hProcess, allocMemAddress, 0, MEM_RELEASE);
         CloseHandle(hProcess);
         return FALSE;
     }
