@@ -10,7 +10,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LunaJuice", "LunaJuice\Luna
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LunaLib", "LunaLib\LunaLib.vcxproj", "{872399F4-13FF-4EF5-BC50-48E12DCDC98D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LunaRhythm", "LunaRhythm\LunaRhythm\LunaRhythm.csproj", "{CBE2B68C-1FFD-4FA3-90E3-91F611A37EA0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LunaRhythm", "LunaRhythm\LunaRhythm\LunaRhythm.csproj", "{CBE2B68C-1FFD-4FA3-90E3-91F611A37EA0}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LunaLoader", "LunaLoader\LunaLoader.vcxproj", "{9935F402-0382-426D-9FE3-574B4636C7B9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{872399F4-13FF-4EF5-BC50-48E12DCDC98D} = {872399F4-13FF-4EF5-BC50-48E12DCDC98D}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -58,6 +63,18 @@ Global
 		{CBE2B68C-1FFD-4FA3-90E3-91F611A37EA0}.Release|x64.Build.0 = Release|Any CPU
 		{CBE2B68C-1FFD-4FA3-90E3-91F611A37EA0}.Release|x86.ActiveCfg = Release|Any CPU
 		{CBE2B68C-1FFD-4FA3-90E3-91F611A37EA0}.Release|x86.Build.0 = Release|Any CPU
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Debug|Any CPU.Build.0 = Debug|x64
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Debug|x64.ActiveCfg = Debug|x64
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Debug|x64.Build.0 = Debug|x64
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Debug|x86.ActiveCfg = Debug|Win32
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Debug|x86.Build.0 = Debug|Win32
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Release|Any CPU.ActiveCfg = Release|x64
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Release|Any CPU.Build.0 = Release|x64
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Release|x64.ActiveCfg = Release|x64
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Release|x64.Build.0 = Release|x64
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Release|x86.ActiveCfg = Release|Win32
+		{9935F402-0382-426D-9FE3-574B4636C7B9}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
