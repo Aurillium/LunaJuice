@@ -111,8 +111,10 @@ BOOL CloseShare() {
     return FALSE;
 }
 
-extern "C" __declspec(dllexport) BOOL APIENTRY LoadConfig() {
-    // Create named mutex for further communication
+extern "C" __declspec(dllexport) BOOL APIENTRY LoadConfig(LunaStart config) {
+    // Connect to named mutex for further communication
+
+    WRITELINE_DEBUG(config.id);
 
     // Initialise hooks
     InstallHooks();

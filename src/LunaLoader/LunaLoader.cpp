@@ -412,7 +412,7 @@ static BOOL InjectDLL(HANDLE hProcess, LPCSTR dllPath)
     HANDLE allocMemAddress = VirtualAllocEx(hProcess, NULL, byteLength, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     if (allocMemAddress == NULL)
     {
-        DISP_WINERROR("Failed to allocate memory in target process");
+        DISP_WINERROR("Failed to allocate memory for injection in target");
         return FALSE;
     }
     SIZE_T written = 0;
@@ -446,20 +446,43 @@ static BOOL InjectDLL(HANDLE hProcess, LPCSTR dllPath)
     VirtualFreeEx(hProcess, allocMemAddress, 0, MEM_RELEASE);
     CloseHandle(hThread);
 
-    // Now finish initialisation with shared object
+    // Now save the data we receive so we can init
 
     memcpy(&initData, lpMemFile, sizeof(LunaShared));
 
-    HANDLE hConfigThread = CreateRemoteThread(hProcess, NULL, 0, LPTHREAD_START_ROUTINE(initData.lpInit), NULL, 0, NULL);
+    LocalFree(psd);
+    UnmapViewOfFile(lpMemFile);
+    CloseHandle(hFileMapping);
+
+    return TRUE;
+}
+
+BOOL InitialiseLunaJuice(HANDLE hProcess) {
+    // TODO: secure random value
+    config.id[0] = 'h';
+    config.id[1] = 'i';
+    config.id[2] = '!';
+
+    // Allocate room for the config
+    HANDLE allocMemAddress = VirtualAllocEx(hProcess, NULL, sizeof(LunaStart), MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    if (allocMemAddress == NULL) {
+        DISP_WINERROR("Failed to allocate memory for configuration in target");
+        return FALSE;
+    }
+
+    DISP_VERBOSE("yett");
+
+    // Copy configuration into target
+    size_t written = 0;
+    WriteProcessMemory(hProcess, allocMemAddress, &config, sizeof(LunaStart), &written);
+
+    // Process configuration and load hooks
+    HANDLE hConfigThread = CreateRemoteThread(hProcess, NULL, 0, LPTHREAD_START_ROUTINE(initData.lpInit), allocMemAddress, 0, NULL);
     if (hConfigThread == NULL) {
         DISP_WINERROR("Failed to create config thread");
         return FALSE;
     }
     WaitForSingleObject(hConfigThread, INFINITE);
-
-    LocalFree(psd);
-    UnmapViewOfFile(lpMemFile);
-    CloseHandle(hFileMapping);
 
     return TRUE;
 }
@@ -652,12 +675,12 @@ int main(int argc, char* argv[])
     }
     UPDATE_LOG("DLL injected successfully!");
 
-    /*DISP_LOG("Initialising LunaJuice...");
-    if (!InitialiseConfig(hProcess, arguments.pid, dllPath)) {
+    DISP_LOG("Initialising LunaJuice...");
+    if (!InitialiseLunaJuice(hProcess)) {
         DISP_ERROR("Could not initialise LunaJuice");
         return 1;
     }
-    UPDATE_LOG("LunaJuice is ready to go!");*/
+    UPDATE_LOG("Initialised!");
 
     DISP_SUCCESS("LunaJuice is ready to go!");
 
