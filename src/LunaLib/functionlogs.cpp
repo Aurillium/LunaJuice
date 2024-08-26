@@ -7,6 +7,8 @@
 #include "functionlogs.h"
 #include "util.h"
 
+#include "shared.h"
+
 // This could be using both indexing and direct memory operations
 // That could cause instability when type sizes are unexpected
 // (sizeof(CHAR) != 1), but not sure

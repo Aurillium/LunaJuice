@@ -17,6 +17,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LunaLoader", "LunaLoader\Lu
 		{872399F4-13FF-4EF5-BC50-48E12DCDC98D} = {872399F4-13FF-4EF5-BC50-48E12DCDC98D}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LunaShared", "LunaShared\LunaShared.vcxitems", "{011EE68E-A8F0-48AC-B6A9-03B4253688E5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -81,5 +83,10 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {60BE4748-59BE-45AF-82DF-451722C1DB52}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		LunaShared\LunaShared.vcxitems*{011ee68e-a8f0-48ac-b6a9-03b4253688e5}*SharedItemsImports = 9
+		LunaShared\LunaShared.vcxitems*{872399f4-13ff-4ef5-bc50-48e12dcdc98d}*SharedItemsImports = 4
+		LunaShared\LunaShared.vcxitems*{9935f402-0382-426d-9fe3-574b4636c7b9}*SharedItemsImports = 4
 	EndGlobalSection
 EndGlobal

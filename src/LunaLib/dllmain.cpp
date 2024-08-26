@@ -10,6 +10,8 @@
 #include "events.h"
 #include "hooks.h"
 
+#include "shared.h"
+
 #include "include/capstone/capstone.h"
 
 // Install the hooks
@@ -62,20 +64,85 @@ void InstallHooks() {
     WRITELINE_DEBUG((void*)Real_NtReadFile);
 }
 
-__declspec(dllexport) BOOL APIENTRY LoadConfig() {
+static HANDLE hMapFile;
+static LPVOID lpMemFile;
+// Remote config function
+#define REMOTE_INIT "LoadConfig"
+// Set up and populate shared memory for init
+BOOL InitShare(HMODULE hModule) {
+    LunaShared shared;
+
+    // Get a handle to our file map
+    hMapFile = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, SHARED_GLOBAL_NAME);
+    if (hMapFile == NULL) {
+        WRITELINE_DEBUG("Could not open global file mapping.");
+
+        // Try open session mapping if there's no global one
+        hMapFile = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, SHARED_GLOBAL_NAME);
+        if (hMapFile == NULL) {
+            // Fail if neither work
+            WRITELINE_DEBUG("Could not open session file mapping.");
+            return FALSE;
+        }
+    }
+
+    // Get our shared memory pointer
+    lpMemFile = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+    if (lpMemFile == NULL) {
+        WRITELINE_DEBUG("Could not map shared memory.");
+        return FALSE;
+    }
+
+    // Set shared memory to hold what our remote process needs
+    memset(lpMemFile, 0, sizeof(LunaShared));
+    shared.hModule = hModule;
+    shared.lpInit = LPDWORD(GetProcAddress(hModule, REMOTE_INIT));
+    shared.dwOffset = DWORD(shared.lpInit) - DWORD(shared.hModule);
+    memcpy(lpMemFile, &shared, sizeof(LunaShared));
+
+    return TRUE;
+}
+BOOL CloseShare() {
+    if (hMapFile != NULL) {
+        UnmapViewOfFile(lpMemFile);
+        CloseHandle(hMapFile);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+extern "C" __declspec(dllexport) BOOL APIENTRY LoadConfig() {
+    // Create named mutex for further communication
+
+    // Initialise hooks
+    InstallHooks();
+    WRITELINE_DEBUG("Installed hooks!");
+
+    WRITELINE_DEBUG("Called.");
+
+    CloseShare();
+
     return FALSE;
 }
 
 // This code is run on injection
-__declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+__declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {    
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        WRITELINE_DEBUG("Attached to process");
-        OpenLogger();
+        DisableThreadLibraryCalls(hModule);
+
+        WRITELINE_DEBUG("Attached to process...");
+        if (!InitShare(hModule)) {
+            WRITELINE_DEBUG("Could not set up shared memory.");
+        }
+        WRITELINE_DEBUG("Initialised share memory...");
+
+        if (!OpenLogger()) {
+            WRITELINE_DEBUG("Could not open logger.");
+        }
         WRITELINE_DEBUG("Started logger!");
-        InstallHooks();
-        WRITELINE_DEBUG("Installed hooks!");
+
         break;
     case DLL_THREAD_ATTACH:
         // These logs are quite verbose, so commented out even for testing by default
@@ -86,8 +153,13 @@ __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for
         break;
     case DLL_PROCESS_DETACH:
         WRITELINE_DEBUG("Detaching from process");
+        if (CloseShare()) {
+            WRITELINE_DEBUG("Closed shared memory, was it used?");
+        } else {
+            WRITELINE_DEBUG("Shared memory was already closed!");
+        }
         CloseLogger();
-        WRITELINE_DEBUG("Closed logger!");
+        WRITELINE_DEBUG("Closed logger and we are out!");
         break;
     }
     return TRUE;

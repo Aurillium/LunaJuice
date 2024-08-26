@@ -286,6 +286,7 @@ void DisplayUsage() {
 		"/p, /pid:pid                     Process ID of target." << std::endl <<
 		"/n, /name:process_name           Find target by process name (less accurate)." << std::endl <<
 		"" << std::endl <<
+		"If one argument fails to parse, the next equivalent argument with the same name will be taken instead." << std::endl <<
 		"More information available on the GitHub wiki: https://github.com/Aurillium/LunaJuice/wiki" << std::endl <<
 	std::endl;
 }

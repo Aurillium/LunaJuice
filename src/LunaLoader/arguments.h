@@ -7,7 +7,11 @@ typedef struct _LUNA_ARGUMENTS {
 	LPCSTR dropPrivileges = "";
 	LPCSTR mitigations = "";
 	LPCSTR hooks = "default";
+#if _DEBUG
+	BOOL verbose = TRUE;
+#else
 	BOOL verbose = FALSE;
+#endif
 	BOOL help = FALSE;
 	DWORD pid = 0;
 } LUNA_ARGUMENTS;
