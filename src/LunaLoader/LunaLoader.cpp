@@ -151,6 +151,8 @@ static BOOL SaveDLL(LPSTR buffer) {
     }
 
     CloseHandle(hFile);
+
+    return TRUE;
 }
 
 #define ADD_FLAG_CMP(name, expr, update) if (NoCapCmp(expr, #name)) {\
