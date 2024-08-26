@@ -125,11 +125,9 @@
     <PostBuildEvent>
       <Command>if $(ConfigurationName) == Debug (
     echo Copying debug mode LunaLib...
-    copy /Y "$(TargetPath)" "$(ProjectDir)..\LunaJuice\embed\LunaLib.dll"
     copy /Y "$(TargetPath)" "$(ProjectDir)..\LunaLoader\embed\LunaLib.dll"
 ) else (
     echo Copying release mode LunaLib...
-    copy /Y "$(TargetPath)" "$(ProjectDir)..\LunaJuice\embed\LunaLib.dll"
     copy /Y "$(TargetPath)" "$(ProjectDir)..\LunaLoader\embed\LunaLib.dll"
 )</Command>
     </PostBuildEvent>
@@ -157,11 +155,9 @@
     <PostBuildEvent>
       <Command>if $(ConfigurationName) == Debug (
     echo Copying debug mode LunaLib...
-    copy /Y "$(TargetPath)" "$(ProjectDir)..\LunaJuice\embed\LunaLib.dll"
     copy /Y "$(TargetPath)" "$(ProjectDir)..\LunaLoader\embed\LunaLib.dll"
 ) else (
     echo Copying release mode LunaLib...
-    copy /Y "$(TargetPath)" "$(ProjectDir)..\LunaJuice\embed\LunaLib.dll"
     copy /Y "$(TargetPath)" "$(ProjectDir)..\LunaLoader\embed\LunaLib.dll"
 )</Command>
     </PostBuildEvent>
