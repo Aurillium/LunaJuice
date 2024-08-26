@@ -9,6 +9,7 @@
 #include "debug.h"
 #include "events.h"
 #include "hooks.h"
+#include "server.h"
 
 #include "shared.h"
 
@@ -99,6 +100,16 @@ BOOL LoadConfig(LunaStart config) {
     WRITELINE_DEBUG("Installed hooks!");
 
     CloseShare();
+    
+    // Start the RPC server
+    HANDLE hThread = CreateThread(
+        NULL,                               // Default security attributes
+        0,                                  // Default stack size
+        (LPTHREAD_START_ROUTINE)BeginPipe,  // Thread function
+        &config.id,                         // Thread function arguments
+        0,                                  // Default creation flags
+        NULL);                              // No thread identifier needed
+    CloseHandle(hThread);
 
     return TRUE;
 }

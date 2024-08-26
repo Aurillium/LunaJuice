@@ -29,6 +29,7 @@ inline MitigationFlags operator|(const MitigationFlags a, const MitigationFlags 
 }
 
 
+#define MAX_ID_LENGTH 24
 // Used to find the config function
 typedef struct _LunaShared {
     DWORD dwOffset = 0;
@@ -37,7 +38,7 @@ typedef struct _LunaShared {
 } LunaShared;
 // Gets passed from loader to lib for initialisation
 typedef struct _LunaStart {
-    CHAR id[25];
+    CHAR id[MAX_ID_LENGTH + 1];
     HookFlags hooks;
     MitigationFlags mitigations;
 } LunaStart;

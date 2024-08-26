@@ -84,3 +84,11 @@ bool NoCapCmp(const char* string, const char* other) {
         i++;
     }
 }
+
+// Perhaps make this secure?
+void RandomString(char* buffer, const char* options, size_t length) {
+    size_t numOptions = strlen(options);
+    for (size_t i = 0; i < length; i++) {
+        buffer[i] = options[rand() % numOptions];
+    }
+}

@@ -129,6 +129,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="arguments.cpp" />
+    <ClCompile Include="comms.cpp" />
     <ClCompile Include="LunaLoader.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>
@@ -141,6 +142,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="arguments.h" />
+    <ClInclude Include="comms.h" />
     <ClInclude Include="output.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="util.h" />

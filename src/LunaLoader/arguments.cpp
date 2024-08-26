@@ -5,6 +5,8 @@
 #include "output.h"
 #include "util.h"
 
+#include "shared.h"
+
 // A simple (mostly) C argument parser
 // (Anything not C is trivial to implement in C)
 
@@ -20,6 +22,10 @@ size_t NameEnds(const char* string, char character) {
 
 char* GetValueBuffer(int* index, char* current, char* next, size_t nameEnd) {
 	if (strlen(current) == nameEnd) {
+		// If the next argument is a flag, there's no next buffer
+		if (next != NULL && (next[0] == '-' || next[0] == '/')) {
+			return NULL;
+		}
 		// I'm impressed VS caught incorrect order of operations
 		++*index;
 		return next;
@@ -177,6 +183,8 @@ void ParseArg(int* index, int argc, char* argv[], char eq, LUNA_ARGUMENTS* args)
 	else current = &argv[*index][1];
 	int nameLength = NameEnds(current, eq);
 
+	// If there is a next argument, get it in this variable
+	// Otherwise null
 	char* next = (*index < argc - 1 ? argv[*index + 1] : NULL);
 	char* valueBuffer = GetValueBuffer(index, current, next, nameLength);
 	if (
@@ -217,6 +225,12 @@ void ParseArg(int* index, int argc, char* argv[], char eq, LUNA_ARGUMENTS* args)
 		args->hooks = ParseString(valueBuffer);
 	}
 	else if (
+		NoCapCmp(current, "c", nameLength) ||
+		NoCapCmp(current, "rpc", nameLength)
+		) {
+		args->rpc = ParseBool(valueBuffer);
+	}
+	else if (
 		// Miscellaneous
 		NoCapCmp(current, "p", nameLength) ||
 		NoCapCmp(current, "pid", nameLength)
@@ -226,6 +240,12 @@ void ParseArg(int* index, int argc, char* argv[], char eq, LUNA_ARGUMENTS* args)
 			return;
 		}
 		args->pid = ParseDword(valueBuffer);
+	}
+	else if (
+		NoCapCmp(current, "i", nameLength) ||
+		NoCapCmp(current, "implant", nameLength)
+		) {
+		args->name = ParseString(valueBuffer);
 	}
 	else if (
 		NoCapCmp(current, "n", nameLength) ||
@@ -254,6 +274,7 @@ void DisplayUsage() {
 		"Example: LunaLoader /d:SeDebugPrivilege,SeImpersonatePrivilege /v 2832" << std::endl <<
 		"Example: LunaLoader /hooks:NtReadFile:ntdll.dll:V4 /p:2832" << std::endl <<
 		"Example: LunaLoader --name=mspaint.exe -l=NtReadFile:ntdll.dll -v=true" << std::endl <<
+		"Example: LunaLoader /rpc /i WELSH_BATTLE" << std::endl <<
 		"                                 " << std::endl <<
 		"Debugging:                       " << std::endl <<
 		"/h, /help, /?                    Display this menu and exit" << std::endl <<
@@ -267,6 +288,7 @@ void DisplayUsage() {
 		"                                 list may be found in the GitHub wiki." << std::endl <<
 		"                                 " << std::endl <<
 		"Controls:                        " << std::endl <<
+		"/c, /rpc						  Connect to RPC. Currently requires implant name" << std::endl <<
 		"/l, /load, /hook                 A list of functions to hook. 'default' can be" << std::endl <<
 		"/hooks=function:dll:version,...  specified to keep the default functions and add" << std::endl <<
 		"                                 more. The DLL name containing the function must" << std::endl <<
@@ -274,6 +296,7 @@ void DisplayUsage() {
 		"Miscellaneous:                   " << std::endl <<
 		"/p, /pid:pid                     Process ID of target." << std::endl <<
 		"/n, /name:process_name           Find target by process name (less accurate)." << std::endl <<
+		"/i, /implant:implant_name        Implant name to connect with (<=" << MAX_ID_LENGTH << " chars)." << std::endl <<
 		"" << std::endl <<
 		"If one argument fails to parse, the next equivalent argument with the same name will be taken instead." << std::endl <<
 		"More information available on the GitHub wiki: https://github.com/Aurillium/LunaJuice/wiki" << std::endl <<

@@ -11,10 +11,16 @@
 #define DISP_LOG(message) std::cout << "\x1b[96;1m[I]\x1b[0;36m >> \x1b[0m" << message << std::endl
 #define UPDATE_LOG(message) std::cout << "   \x1b[0;36m  > \x1b[0m" << message << std::endl
 
+#define DISP_REMOTE(message) std::cout << "\x1b[96;1m[R]\x1b[0;36m << \x1b[0m" << message << std::endl
+#define UPDATE_REMOTE(message) std::cout << "   \x1b[0;36m  < \x1b[0m" << message << std::endl
+
 #define DISP_SUCCESS(message) std::cout << "\x1b[92;1m[S]\x1b[0;32m >> \x1b[0m" << message << std::endl
 #define UPDATE_SUCCESS(message) std::cout << "   \x1b[0;32m  > \x1b[0m" << message << std::endl
 
 #define DISP_VERBOSE(message) if (verboseEnabled) std::cout << "\x1b[95;1m[V]\x1b[0;35m >> \x1b[0m" << message << std::endl
 #define UPDATE_VERBOSE(message) if (verboseEnabled) std::cout << "   \x1b[0;35m  > \x1b[0m" << message << std::endl
+
+#define DISP_VERBOSE_REMOTE(message) if (verboseEnabled) std::cout << "\x1b[95;1m[R]\x1b[0;35m << \x1b[0m" << message << std::endl
+#define UPDATE_VERBOSE_REMOTE(message) if (verboseEnabled) std::cout << "   \x1b[0;35m  < \x1b[0m" << message << std::endl
 
 #define RESET_FORMAT std::cout << "\x1b[0m"
