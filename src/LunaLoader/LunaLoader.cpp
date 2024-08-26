@@ -153,7 +153,133 @@ static BOOL SaveDLL(LPSTR buffer) {
     CloseHandle(hFile);
 }
 
+#define ADD_FLAG_CMP(name, expr, update) if (NoCapCmp(expr, #name)) {\
+    update = update | Enable_##name;\
+}
+
+// Consumes mitigations and hooks
 BOOL PopulateStartData(LUNA_ARGUMENTS *arguments) {
+    // Set up hooks
+
+    // Loop over and OR with hook flags in config
+    size_t startIndex = 0, i = 0;
+    BOOL inText = FALSE;
+
+    DISP_VERBOSE("Starting to add hooks...");
+
+    if (arguments->hooks[0] == 0) {
+        config.hooks = DEFAULT_HOOKS;
+        UPDATE_VERBOSE("No data, added default hooks.");
+    } else {
+        while (true) {
+            CHAR current = arguments->hooks[i];
+
+            // When we get to the end of a hook, add it to config
+            if (IS_WHITESPACE(current) || current == ',' || current == 0) {
+                // We've hit whitespace or a comma after being in text, time to drop
+                if (inText) {
+
+                    // This is technically constant/static because it comes directly from argv
+                    // We can modify it though
+                    ((char*)arguments->hooks)[i] = 0;
+
+                    // Get hook name to compare
+                    LPCSTR hookName = &arguments->hooks[startIndex];
+
+                    // Compare and add hooks
+                    if (NoCapCmp("DEFAULT", hookName)) {
+                        config.hooks = config.hooks | DEFAULT_HOOKS;
+                    }
+                    else ADD_FLAG_CMP(NtReadFile, hookName, config.hooks)
+                    else ADD_FLAG_CMP(NtWriteFile, hookName, config.hooks)
+                    else ADD_FLAG_CMP(ReadConsole, hookName, config.hooks)
+                    else ADD_FLAG_CMP(RtlAdjustPrivilege, hookName, config.hooks)
+                    else ADD_FLAG_CMP(OpenProcess, hookName, config.hooks)
+                    else ADD_FLAG_CMP(CreateRemoteThread, hookName, config.hooks)
+                    else ADD_FLAG_CMP(WriteProcessMemory, hookName, config.hooks)
+                    else ADD_FLAG_CMP(ReadProcessMemory, hookName, config.hooks)
+                    else ADD_FLAG_CMP(CreateProcess, hookName, config.hooks)
+                    else ADD_FLAG_CMP(NtCreateUserProcess, hookName, config.hooks)
+                    else {
+                        DISP_WARN("Could not find hook '" << hookName << "'");
+                    }
+
+                    UPDATE_VERBOSE("Added " << hookName);
+                    inText = FALSE;
+                }
+
+                // Process from after whitespace/comma
+                startIndex = i + 1;
+            }
+            else {
+                // If not whitespace/comma, we're in a privilege.
+                inText = TRUE;
+            }
+
+            // We've reached the end
+            if (current == 0) {
+                break;
+            }
+
+            i++;
+        }
+    }
+
+    // Add mitigations
+
+    startIndex = 0, i = 0;
+    inText = FALSE;
+
+    DISP_VERBOSE("Starting to add mitigations...");
+
+    if (arguments->mitigations[0] == 0) {
+        UPDATE_VERBOSE("No data, no mitigations active.");
+    }
+    else {
+        while (true) {
+            CHAR current = arguments->mitigations[i];
+
+            // When we get to the end of a hook, add it to config
+            if (IS_WHITESPACE(current) || current == ',' || current == 0) {
+                // We've hit whitespace or a comma after being in text, time to drop
+                if (inText) {
+
+                    // This is technically constant/static because it comes directly from argv
+                    // We can modify it though
+                    ((char*)arguments->mitigations)[i] = 0;
+
+                    // Get hook name to compare
+                    LPCSTR mitigationName = &arguments->mitigations[startIndex];
+
+                    // Compare and add mitigations
+                    ADD_FLAG_CMP(BlockEsc, mitigationName, config.mitigations)
+                    else ADD_FLAG_CMP(BlanketFakeSuccess, mitigationName, config.mitigations)
+                    else ADD_FLAG_CMP(BlanketNoPerms, mitigationName, config.mitigations)
+                    else {
+                        DISP_WARN("Could not find mitigation '" << mitigationName << "'");
+                    }
+
+                    UPDATE_VERBOSE("Added " << mitigationName);
+                    inText = FALSE;
+                }
+
+                // Process from after whitespace/comma
+                startIndex = i + 1;
+            }
+            else {
+                // If not whitespace/comma, we're in a privilege.
+                inText = TRUE;
+            }
+
+            // We've reached the end
+            if (current == 0) {
+                break;
+            }
+
+            i++;
+        }
+    }
+
     return TRUE;
 }
 
@@ -323,9 +449,6 @@ static BOOL InjectDLL(HANDLE hProcess, LPCSTR dllPath)
     // Now finish initialisation with shared object
 
     memcpy(&initData, lpMemFile, sizeof(LunaShared));
-    DISP_LOG(initData.lpInit);
-    DISP_LOG(initData.hModule);
-    DISP_LOG(initData.dwOffset);
 
     HANDLE hConfigThread = CreateRemoteThread(hProcess, NULL, 0, LPTHREAD_START_ROUTINE(initData.lpInit), NULL, 0, NULL);
     if (hConfigThread == NULL) {
@@ -453,10 +576,6 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (!PopulateStartData(&arguments)) {
-        DISP_ERROR("Could not process arguments");
-    }
-
     if (arguments.pid == 0)
     {
 #if _DEBUG
@@ -482,6 +601,12 @@ int main(int argc, char* argv[])
         DISP_WARN("Could not display banner");
 
     DISP_LOG("Targetting " << arguments.pid);
+
+    if (!PopulateStartData(&arguments)) {
+        DISP_ERROR("Could not process arguments");
+        ret = 1;
+        goto cleanup_nohandle;
+    }
 
     DISP_LOG("Obtaining debug privilege...");
     if (!EnableDebugPrivilege()) {
@@ -517,7 +642,7 @@ int main(int argc, char* argv[])
         ret = 1;
         goto cleanup;
     }
-    //DISP_LOG("Dropped privileges for process ID " << targetProcessId << ".");
+    UPDATE_LOG("Dropped privileges successfully!");
 
     DISP_LOG("Injecting monitor DLL...");
     if (!InjectDLL(hProcess, dllPath)) {
@@ -533,6 +658,8 @@ int main(int argc, char* argv[])
         return 1;
     }
     UPDATE_LOG("LunaJuice is ready to go!");*/
+
+    DISP_SUCCESS("LunaJuice is ready to go!");
 
     cleanup:
     CloseHandle(hProcess);

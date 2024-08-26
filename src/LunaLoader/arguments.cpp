@@ -18,25 +18,6 @@ size_t NameEnds(const char* string, char character) {
 	return length;
 }
 
-bool NoCapCmp(const char* string, const char* other, size_t length) {
-	for (size_t i = 0; i < length; i++) {
-		// Correct capitals
-		char c1, c2;
-
-		if (string[i] >= 'A' && string[i] >= 'Z')
-			c1 = string[i] + 32;
-		else c1 = string[i];
-
-		if (other[i] >= 'A' && other[i] >= 'Z')
-			c2 = other[i] + 32;
-		else c2 = other[i];
-
-		if (c1 != c2) {
-			return false;
-		}
-	}
-}
-
 char* GetValueBuffer(int* index, char* current, char* next, size_t nameEnd) {
 	if (strlen(current) == nameEnd) {
 		// I'm impressed VS caught incorrect order of operations
@@ -218,6 +199,14 @@ void ParseArg(int* index, int argc, char* argv[], char eq, LUNA_ARGUMENTS* args)
 		NoCapCmp(current, "drop", nameLength)
 	) {
 		args->dropPrivileges = ParseString(valueBuffer);
+	}
+	else if (
+		NoCapCmp(current, "m", nameLength) ||
+		NoCapCmp(current, "mitigation", nameLength) ||
+		NoCapCmp(current, "mitigations", nameLength) ||
+		NoCapCmp(current, "mitigate", nameLength)
+		) {
+		args->mitigations = ParseString(valueBuffer);
 	}
 	else if (
 		// Controls

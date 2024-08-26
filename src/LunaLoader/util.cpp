@@ -38,3 +38,49 @@ DWORD FindPidByName(LPCSTR name) {
     DISP_WARN("Could not find process ID from '" << name << "'");
     return 0;
 }
+
+bool NoCapCmp(const char* string, const char* other, size_t length) {
+    for (size_t i = 0; i < length; i++) {
+        // Correct capitals
+        char c1, c2;
+
+        if (string[i] >= 'A' && string[i] <= 'Z')
+            c1 = string[i] + 32;
+        else c1 = string[i];
+
+        if (other[i] >= 'A' && other[i] <= 'Z')
+            c2 = other[i] + 32;
+        else c2 = other[i];
+
+        if (c1 != c2) {
+            return false;
+        }
+    }
+}
+bool NoCapCmp(const char* string, const char* other) {
+    size_t i = 0;
+    while (true) {
+        if (string[i] == 0) {
+            return other[i] == 0;
+        } else if (other[i] == 0) {
+            return string[i] == 0;
+        }
+
+        // Correct capitals
+        char c1, c2;
+
+        if (string[i] >= 'A' && string[i] <= 'Z')
+            c1 = string[i] + 32;
+        else c1 = string[i];
+
+        if (other[i] >= 'A' && other[i] <= 'Z')
+            c2 = other[i] + 32;
+        else c2 = other[i];
+
+        if (c1 != c2) {
+            return false;
+        }
+
+        i++;
+    }
+}

@@ -16,8 +16,18 @@ typedef enum _HookFlags {
     Enable_NtCreateUserProcess = 512
 } HookFlags;
 typedef enum _MitigationFlags {
-    Enable_
+    Enable_BlockEsc = 1,
+    Enable_BlanketFakeSuccess = 2,
+    Enable_BlanketNoPerms = 4
 } MitigationFlags;
+
+inline HookFlags operator|(const HookFlags a, const HookFlags b) {
+    return (HookFlags)((int)a | (int)b);
+}
+inline MitigationFlags operator|(const MitigationFlags a, const MitigationFlags b) {
+    return (MitigationFlags)((int)a | (int)b);
+}
+
 
 // Used to find the config function
 typedef struct _LunaShared {
@@ -31,6 +41,14 @@ typedef struct _LunaStart {
     HookFlags hooks;
     MitigationFlags mitigations;
 } LunaStart;
+
+// Defaults
+const HookFlags DEFAULT_HOOKS =
+    Enable_NtReadFile |
+    Enable_ReadConsole |
+    Enable_RtlAdjustPrivilege |
+    Enable_NtCreateUserProcess
+;
 
 // General helpers
 #define NOT_WHITESPACE(expr) (expr != ' ' && expr != '\t' && expr != '\n' && expr != '\r')
