@@ -64,9 +64,9 @@ LPCSTR ParseString(char* buffer) {
 	return buffer;
 }
 
-#define INVALID_BASE16(expr) ((buffer[i] <= '0' || buffer[i] >= '9') && (buffer[i] <= 'a' || buffer[i] >= 'f') && (buffer[i] <= 'A' || buffer[i] >= 'F'))
-#define INVALID_BASE10(expr) (buffer[i] <= '0' || buffer[i] >= '9')
-#define INVALID_BASE8(expr) (buffer[i] <= '0' || buffer[i] >= '7')
+#define INVALID_BASE16(expr) ((buffer[i] < '0' || buffer[i] > '9') && (buffer[i] < 'a' || buffer[i] > 'f') && (buffer[i] < 'A' || buffer[i] > 'F'))
+#define INVALID_BASE10(expr) (buffer[i] < '0' || buffer[i] > '9')
+#define INVALID_BASE8(expr) (buffer[i] < '0' || buffer[i] > '7')
 #define INVALID_BASE2(expr) (buffer[i] != '0' && buffer[i] != '1')
 DWORD ParseDword(char* buffer) {
 	if (buffer == NULL) {
@@ -113,16 +113,16 @@ DWORD ParseDword(char* buffer) {
 		}
 
 		int digit = 0;
-		if (buffer[i] <= '0' || buffer[i] >= '9') {
+		if (buffer[i] >= '0' || buffer[i] <= '9') {
 			digit = buffer[i] - 48;
 		}
-		else if (buffer[i] <= 'a' || buffer[i] >= 'z') {
+		else if (buffer[i] >= 'a' || buffer[i] <= 'z') {
 			digit = buffer[i] - 87;
 		}
-		else if (buffer[i] <= 'A' || buffer[i] >= 'z') {
+		else if (buffer[i] >= 'A' || buffer[i] <= 'z') {
 			digit = buffer[i] - 55;
 		}
-		updated = updated * 10 + digit;
+		updated = updated * base + digit;
 		if (updated < number) {
 			DISP_WARN("Integer overflow while parsing argument, returning 0");
 			return 0;
@@ -288,7 +288,7 @@ void DisplayUsage() {
 		"                                 list may be found in the GitHub wiki." << std::endl <<
 		"                                 " << std::endl <<
 		"Controls:                        " << std::endl <<
-		"/c, /rpc						  Connect to RPC. Currently requires implant name" << std::endl <<
+		"/c, /rpc                         Connect to RPC. Currently requires implant name" << std::endl <<
 		"/l, /load, /hook                 A list of functions to hook. 'default' can be" << std::endl <<
 		"/hooks=function:dll:version,...  specified to keep the default functions and add" << std::endl <<
 		"                                 more. The DLL name containing the function must" << std::endl <<
