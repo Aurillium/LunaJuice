@@ -288,7 +288,7 @@ void DisplayUsage() {
 		"                                 list may be found in the GitHub wiki." << std::endl <<
 		"                                 " << std::endl <<
 		"Controls:                        " << std::endl <<
-		"/c, /rpc						  Connect to RPC. Currently requires implant name" << std::endl <<
+		"/c, /rpc                         Connect to RPC. Currently requires implant name" << std::endl <<
 		"/l, /load, /hook                 A list of functions to hook. 'default' can be" << std::endl <<
 		"/hooks=function:dll:version,...  specified to keep the default functions and add" << std::endl <<
 		"                                 more. The DLL name containing the function must" << std::endl <<
