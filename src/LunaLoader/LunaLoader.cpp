@@ -17,33 +17,6 @@
 bool verboseEnabled = false;
 LunaShared initData;
 
-const char* privilegesToRemove[] = {
-        "SeDebugPrivilege",
-        "SeImpersonatePrivilege",
-        "SeDelegateSessionUserImpersonatePrivilege",
-        "SeCreateTokenPrivilege",
-        "SeAssignPrimaryTokenPrivilege",
-        "SeChangeNotifyPrivilege",
-        "SeCreateGlobalPrivilege",
-        "SeCreatePagefilePrivilege",
-        "SeCreatePermanentPrivilege",
-        "SeEnableDelegationPrivilege",
-        "SeLoadDriverPrivilege",
-        "SeLockMemoryPrivilege",
-        "SeMachineAccountPrivilege",
-        "SeManageVolumePrivilege",
-        "SeProfileSingleProcessPrivilege",
-        "SeRelabelPrivilege",
-        "SeRemoteShutdownPrivilege",
-        "SeRestorePrivilege",
-        "SeSecurityPrivilege",
-        "SeShutdownPrivilege",
-        "SeSystemEnvironmentPrivilege",
-        "SeTakeOwnershipPrivilege",
-        "SeTcbPrivilege",
-        "SeTrustedCredManAccessPrivilege"
-        // Unsolicited input?
-};
 const DWORD SE_PRIVILEGE_DISABLED = 0x00000000;
 
 const LPCWSTR juiceIcon[] = {
@@ -417,6 +390,9 @@ BOOL PrintBanner(HANDLE hStdout) {
 int main(int argc, char* argv[])
 {
     int ret = 0;
+
+    // Seed random with time for generating IDs
+    srand(time(NULL));
 
     // Get the handle to the standard output
     // We're going to try enable nice ANSI formatting
