@@ -25,7 +25,7 @@ ret calltype Hooked_##name##sig;
 #define HOOKDEF(name, calltype, ret, sig) \
 name##_t Real_##name; \
 LPCSTR String_##name = #ret " " #calltype " " #name #sig; \
-ret calltype Hooked_##name##sig
+NOINLINE ret calltype Hooked_##name##sig
 
 PLH::NatDetour* InstallPolyHook(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void** originalFunction);
 
