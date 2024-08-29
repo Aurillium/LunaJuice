@@ -219,6 +219,7 @@ void ParseArg(int* index, int argc, char* argv[], char eq, LUNA_ARGUMENTS* args)
 	else if (
 		// Controls
 		NoCapCmp(current, "l", nameLength) ||
+		NoCapCmp(current, "load", nameLength) ||
 		NoCapCmp(current, "hook", nameLength) ||
 		NoCapCmp(current, "hooks", nameLength)
 	) {
@@ -229,6 +230,12 @@ void ParseArg(int* index, int argc, char* argv[], char eq, LUNA_ARGUMENTS* args)
 		NoCapCmp(current, "rpc", nameLength)
 		) {
 		args->rpc = ParseBool(valueBuffer);
+	}
+	else if (
+		NoCapCmp(current, "e", nameLength) ||
+		NoCapCmp(current, "events", nameLength)
+		) {
+		args->events = ParseString(valueBuffer);
 	}
 	else if (
 		// Miscellaneous
@@ -293,6 +300,11 @@ void DisplayUsage() {
 		"/hooks=function:dll:version,...  specified to keep the default functions and add" << std::endl <<
 		"                                 more. The DLL name containing the function must" << std::endl <<
 		"                                 be provided. The version (2-4) is 2 by default." << std::endl <<
+		"                                 " << std::endl <<
+		"Logging:                         " << std::endl <<
+		"/e, /events:+evid,-evid...       A list of logging event IDs and/or names to" << std::endl <<
+		"/e, /events:+evid,-evid...       include/exclude. All are enabled by default." << std::endl <<
+		"                                 " << std::endl <<
 		"Miscellaneous:                   " << std::endl <<
 		"/p, /pid:pid                     Process ID of target." << std::endl <<
 		"/n, /name:process_name           Find target by process name (less accurate)." << std::endl <<

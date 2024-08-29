@@ -6,6 +6,7 @@
 typedef struct _LUNA_ARGUMENTS {
 	LPCSTR dropPrivileges = "";
 	LPCSTR mitigations = "";
+	LPCSTR events = "";
 	LPCSTR hooks = "";
 	LPCSTR name = "";
 #if _DEBUG
