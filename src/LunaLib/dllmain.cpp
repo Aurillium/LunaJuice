@@ -134,7 +134,7 @@ BOOL InitShare(HMODULE hModule) {
         WRITELINE_DEBUG("Could not open global file mapping.");
 
         // Try open session mapping if there's no global one
-        hMapFile = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, SHARED_GLOBAL_NAME);
+        hMapFile = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, SHARED_SESSION_NAME);
         if (hMapFile == NULL) {
             // Fail if neither work
             WRITELINE_DEBUG("Could not open session file mapping.");

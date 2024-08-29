@@ -36,7 +36,7 @@ const LPCWSTR juiceIcon[] = {
 const LPCWSTR textArt[] = {
     LR"(,--.                                ,--.        ,--.             )",
     LR"(|  |   ,--.,--.,--, --, ,--,--.     |  |,--.,--.`--' ,---. ,---. )",
-    LR"(|  |   |  ||  ||      \' ,-.  |,--. |  ||  ||  |,--.| .--'| .-. :)",
+    LR"(|  |   |  ||  ||      |' ,-.  |,--. |  ||  ||  |,--.| .--'| .-. :)",
     LR"(|  '--.'  ''  '|  ||  |\ '-'  ||  '-'  /'  ''  '|  |\ `--.\   --.)",
     LR"(`-----' `----' `--''--' `--`--' `-----'  `----' `--' `---' `----')"
 };
@@ -233,7 +233,8 @@ static BOOL InjectDLL(HANDLE hProcess, LPCSTR dllPath)
 
     sa.lpSecurityDescriptor = psd;
 
-    HANDLE hFileMapping = CreateFileMappingA(
+    HANDLE hFileMapping;
+    hFileMapping = CreateFileMappingA(
         INVALID_HANDLE_VALUE,       // Use paging file
         &sa,                        // Security attributes
         PAGE_READWRITE,             // Read/write access
@@ -241,8 +242,25 @@ static BOOL InjectDLL(HANDLE hProcess, LPCSTR dllPath)
         1024,                       // Maximum object size (low-order DWORD)
         SHARED_GLOBAL_NAME);        // Name of the file mapping object
     if (hFileMapping == NULL) {
-        DISP_WINERROR("Could not create file mapping");
-        return FALSE;
+        if (GetLastError() == ERROR_ACCESS_DENIED) {
+            // Try as a regular user
+            UPDATE_WARN("Could not create file mapping as admin, can only operate on programs run by your user");
+            hFileMapping = CreateFileMappingA(
+                INVALID_HANDLE_VALUE,       // Use paging file
+                NULL,                       // Security attributes (default)
+                PAGE_READWRITE,             // Read/write access
+                0,                          // Maximum object size (high-order DWORD)
+                1024,                       // Maximum object size (low-order DWORD)
+                SHARED_SESSION_NAME);       // This time use a local session object
+            if (hFileMapping == NULL) {
+                goto filemap_fail;
+            }
+        } else {
+            // We end up here if the error was unrelated to permissions
+            filemap_fail:
+            DISP_WINERROR("Could not create file mapping");
+            return FALSE;
+        }
     }
 
     // Get our shared memory pointer
