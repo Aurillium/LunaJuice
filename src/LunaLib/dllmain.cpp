@@ -15,8 +15,25 @@
 
 #include "include/capstone/capstone.h"
 
+#include <polyhook2/IHook.hpp>
+#include <polyhook2/Detour/NatDetour.hpp>
+
 static HANDLE hMapFile;
 static LPVOID lpMemFile;
+
+EXTERN_HOOK(NtReadFile);
+EXTERN_HOOK(NtWriteFile);
+EXTERN_HOOK(ReadConsoleA);
+EXTERN_HOOK(ReadConsoleW);
+EXTERN_HOOK(RtlAdjustPrivilege);
+EXTERN_HOOK(OpenProcess);
+EXTERN_HOOK(CreateRemoteThread);
+EXTERN_HOOK(CreateRemoteThreadEx);
+EXTERN_HOOK(WriteProcessMemory);
+EXTERN_HOOK(ReadProcessMemory);
+EXTERN_HOOK(CreateProcessW);
+EXTERN_HOOK(CreateProcessA);
+EXTERN_HOOK(NtCreateUserProcess);
 
 // Install the hooks
 void InstallHooks(HookFlags flags) {
@@ -25,59 +42,45 @@ void InstallHooks(HookFlags flags) {
     QUICK_HOOK("user32.dll", MessageBoxA);
 #endif
 
-    EXTERN_HOOK(NtReadFile);
-    EXTERN_HOOK(NtWriteFile);
-    EXTERN_HOOK(ReadConsoleA);
-    EXTERN_HOOK(ReadConsoleW);
-    EXTERN_HOOK(RtlAdjustPrivilege);
-    EXTERN_HOOK(OpenProcess);
-    EXTERN_HOOK(CreateRemoteThread);
-    EXTERN_HOOK(CreateRemoteThreadEx);
-    EXTERN_HOOK(WriteProcessMemory);
-    EXTERN_HOOK(ReadProcessMemory);
-    EXTERN_HOOK(CreateProcessW);
-    EXTERN_HOOK(CreateProcessA);
-    EXTERN_HOOK(NtCreateUserProcess);
-
     // File read/write
     if (flags & Enable_NtReadFile) {
-        QUICK_HOOK_V3("ntdll.dll", NtReadFile);
+        QUICK_HOOK("ntdll.dll", NtReadFile);
     }
     if (flags & Enable_NtWriteFile) {
-        QUICK_HOOK_V3("ntdll.dll", NtWriteFile);
+        QUICK_HOOK("ntdll.dll", NtWriteFile);
     }
     // Console read
     if (flags & Enable_ReadConsole) {
-        QUICK_HOOK_V4("kernel32.dll", ReadConsoleA);
-        QUICK_HOOK_V4("kernel32.dll", ReadConsoleW);
+        QUICK_HOOK("kernel32.dll", ReadConsoleA);
+        QUICK_HOOK("kernel32.dll", ReadConsoleW);
     }
     
     if (flags & Enable_RtlAdjustPrivilege) {
-        QUICK_HOOK_V4("ntdll.dll", RtlAdjustPrivilege);
+        QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
     }
 
     // Remote processes
     if (flags & Enable_OpenProcess) {
-        QUICK_HOOK_V4("kernel32.dll", OpenProcess);
+        QUICK_HOOK("kernel32.dll", OpenProcess);
     }
     if (flags & Enable_CreateRemoteThread) {
-        QUICK_HOOK_V4("kernel32.dll", CreateRemoteThread);
-        QUICK_HOOK_V4("kernel32.dll", CreateRemoteThreadEx);
+        QUICK_HOOK("kernel32.dll", CreateRemoteThread);
+        QUICK_HOOK("kernel32.dll", CreateRemoteThreadEx);
     }
     if (flags & Enable_WriteProcessMemory) {
-        QUICK_HOOK_V4("kernel32.dll", WriteProcessMemory);
+        QUICK_HOOK("kernel32.dll", WriteProcessMemory);
     }
     if (flags & Enable_ReadProcessMemory) {
-        QUICK_HOOK_V4("kernel32.dll", ReadProcessMemory);
+        QUICK_HOOK("kernel32.dll", ReadProcessMemory);
     }
     
     // Process start
     if (flags & Enable_CreateProcess) {
-        QUICK_HOOK_V4("kernel32.dll", CreateProcessW);
-        QUICK_HOOK_V4("kernel32.dll", CreateProcessA);
+        QUICK_HOOK("kernel32.dll", CreateProcessW);
+        QUICK_HOOK("kernel32.dll", CreateProcessA);
     }
     if (flags & Enable_NtCreateUserProcess) {
-        QUICK_HOOK_V3("ntdll.dll", NtCreateUserProcess);
+        QUICK_HOOK("ntdll.dll", NtCreateUserProcess);
     }
 }
 
@@ -109,6 +112,12 @@ BOOL LoadConfig(LunaStart config) {
         &config.id,                         // Thread function arguments
         0,                                  // Default creation flags
         NULL);                              // No thread identifier needed
+
+    if (hThread == NULL) {
+        WRITELINE_DEBUG("Could not create thread.");
+        return FALSE;
+    }
+
     CloseHandle(hThread);
 
     return TRUE;

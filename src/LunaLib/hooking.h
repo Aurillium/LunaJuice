@@ -1,12 +1,14 @@
 #pragma once
-#include "hookingv2.h"
-#include "hookingv3.h"
-#include "hookingv4.h"
+//#include "hookingv2.h"
+//#include "hookingv3.h"
+//#include "hookingv4.h"
+
+#include <polyhook2/Detour/NatDetour.hpp>
 
 // Macro to make hooking easier
 // Make sure you follow the naming format though!
 // Hooked_{name}, Real_{name}
-#define QUICK_HOOK(dll, name) (InstallHookV4(dll, #name, (void*)Hooked_##name, (void**)&Real_##name))
+#define QUICK_HOOK(dll, name) (InstallPolyHook(dll, #name, (void*)Hooked_##name, (void**)&Real_##name)->hook())
 #define EXTERN_HOOK(name) extern name##_t Real_##name;
 
 // Quickly define hooks
@@ -24,6 +26,8 @@ ret calltype Hooked_##name##sig;
 name##_t Real_##name; \
 LPCSTR String_##name = #ret " " #calltype " " #name #sig; \
 ret calltype Hooked_##name##sig
+
+PLH::NatDetour* InstallPolyHook(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void** originalFunction);
 
 // These variables cannot be static, no matter what Visual Studio says:
 // https://stackoverflow.com/questions/1358400/what-is-external-linkage-and-internal-linkage

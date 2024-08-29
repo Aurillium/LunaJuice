@@ -102,28 +102,20 @@ BOOL CloseLogger() {
 	return TRUE;
 }
 // Call after freeing your own arguments to avoid memory leaks
-static void FreeEventBaseArguments(LPCSTR* arguments, size_t extra = 0) {
-	if (arguments == NULL) {
-		// Already done
-		return;
-	}
+static BOOL FreeEventBaseArguments(LPCSTR* arguments, size_t extra = 0) {
 	for (size_t i = 0; i < DEFAULT_ARGS + extra; i++)
 	{
-		free((void*)arguments[i]);
+		// It's up to the user to ensure no constant strings
+		// are actually stored.
+		free((LPSTR)arguments[i]);
 	}
 	free(arguments);
-	arguments = NULL;
-	return;
+	return TRUE;
 }
 
 static LPCSTR GetThreadUsername() {
-	char* usernameBuffer = (char*)calloc(SECURITY_MAX_SID_SIZE + 1, sizeof(char));
-	char* domainBuffer = (char*)calloc(SECURITY_MAX_SID_SIZE + 1, sizeof(char));
-
-	if (usernameBuffer == NULL || domainBuffer == NULL) {
-		WRITELINE_DEBUG("Could not allocate memory to store username and domain.");
-		return NULL;
-	}
+	char usernameBuffer[SECURITY_MAX_SID_SIZE + 1];
+	char domainBuffer[SECURITY_MAX_SID_SIZE + 1];
 
 	// Gets thread token or process token if no thread token
 	HANDLE token = GetCurrentThreadEffectiveToken();
@@ -172,7 +164,7 @@ static LPCSTR GetThreadUsername() {
 	}
 	memcpy_s(joinedName, domainLength, domainBuffer, domainLength);
 	joinedName[domainLength] = '\\';
-	memcpy_s(joinedName + domainLength + 1, usernameLength, usernameBuffer, usernameLength);
+	memcpy_s(joinedName + domainLength + 1, usernameLength - domainLength - 1, usernameBuffer, usernameLength);
 
 	// This must be freed
 	return joinedName;
@@ -190,7 +182,6 @@ static LPCSTR* EventBaseArguments(size_t extra) {
 	char* pathBuffer = (char*)calloc(MAX_PATH + 1, sizeof(char));
 	char* ppidBuffer = (char*)calloc(11 /* Max PID size is 10 */, sizeof(char));
 	char* parentPathBuffer = (char*)calloc(MAX_PATH + 1, sizeof(char));
-
 	
 
 	if (pidBuffer == NULL || pathBuffer == NULL || ppidBuffer == NULL || parentPathBuffer == NULL) {
@@ -199,9 +190,9 @@ static LPCSTR* EventBaseArguments(size_t extra) {
 	}
 
 	memcpy_s(pidBuffer, 11, PID, 11);
-	memcpy_s(pathBuffer, MAX_PATH + 1, PATH, MAX_PATH + 1);
+	memcpy_s(pathBuffer, MAX_PATH, PATH, MAX_PATH);
 	memcpy_s(ppidBuffer, 11, PPID, 11);
-	memcpy_s(parentPathBuffer, MAX_PATH + 1, PARENT_PATH, MAX_PATH + 1);
+	memcpy_s(parentPathBuffer, MAX_PATH, PARENT_PATH, MAX_PATH);
 
 	// This must be freed later
 	LPCSTR joinedName = GetThreadUsername();
@@ -243,12 +234,12 @@ BOOL LogStdin(LPCSTR content) {
 	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_STANDARD_FILE, MSG_STDIN_READ, NULL, 6, 0, arguments, NULL)) {
 		WRITELINE_DEBUG("Could not send event: " << GetLastError());
 		FreeEventBaseArguments(arguments);
+		free(buffer);
 		return FALSE;
 	}
 	FreeEventBaseArguments(arguments);
-	if (buffer != NULL) {
-		free(buffer);
-	}
+	// Freeing NULL has no effect
+	free(buffer);
 	return TRUE;
 }
 
@@ -289,6 +280,8 @@ BOOL LogStderr(LPCSTR content) {
 }
 
 BOOL LogParentSpoof(DWORD fakeParent, LPCSTR image, LPCSTR parameters, DWORD pid) {
+	HANDLE_CHECK;
+
 	LPCSTR* arguments = EventBaseArguments(4);
 	arguments[5] = image;
 	arguments[6] = (LPCSTR)calloc(11, sizeof(char));
@@ -316,6 +309,8 @@ BOOL LogParentSpoof(DWORD fakeParent, LPCSTR image, LPCSTR parameters, DWORD pid
 	return TRUE;
 }
 BOOL LogProcessCreate(LPCSTR image, LPCSTR parameters, DWORD pid) {
+	HANDLE_CHECK;
+
 	LPCSTR* arguments = EventBaseArguments(4);
 	arguments[5] = image;
 	arguments[6] = (LPCSTR)calloc(11, sizeof(char));
@@ -337,7 +332,7 @@ BOOL LogProcessCreate(LPCSTR image, LPCSTR parameters, DWORD pid) {
 	return TRUE;
 }
 BOOL LogPrivilegeAdjust(BOOL added, ULONG privilege) {
-	LPCSTR* arguments = EventBaseArguments(1);
+	LPCSTR* arguments = EventBaseArguments(2);
 
 	LUID luid;
 	luid.LowPart = privilege;
@@ -345,8 +340,10 @@ BOOL LogPrivilegeAdjust(BOOL added, ULONG privilege) {
 
 	DWORD nameLength = 255;
 	char* name = (char*)calloc(nameLength + 1, sizeof(char));
+
 	if (name == NULL) {
 		WRITELINE_DEBUG("Could not allocate memory for privilege name");
+		FreeEventBaseArguments(arguments);
 		return FALSE;
 	}
 
@@ -363,12 +360,16 @@ BOOL LogPrivilegeAdjust(BOOL added, ULONG privilege) {
 
 	if (!ReportEventA(LOG_HANDLE, EVENTLOG_INFORMATION_TYPE, CAT_PRIVILEGE, MSG_PRIVILEGE_ADJUST, NULL, 7, 0, arguments, NULL)) {
 		WRITELINE_DEBUG("Could not send event: " << GetLastError());
+		free(name);
 		FreeEventBaseArguments(arguments);
 		return FALSE;
 	}
 
+	WRITELINE_DEBUG("Logged");
+
 	free(name);
 	FreeEventBaseArguments(arguments);
+
 	return TRUE;
 }
 
