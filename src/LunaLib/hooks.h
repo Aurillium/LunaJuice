@@ -4,6 +4,7 @@
 
 #include "forbidden_headers.h"
 #include "hooking.h"
+#include <Unknwnbase.h>
 
 // For testing purposes only
 HOOKHEAD(MessageBoxA, WINAPI, BOOL, (HWND, LPCSTR, LPCSTR, UINT));
@@ -39,3 +40,5 @@ HOOKHEAD(CreateProcessW, WINAPI, BOOL, (LPCWSTR lpApplicationName, LPWSTR lpComm
 HOOKHEAD(CreateProcessA, WINAPI, BOOL, (LPCSTR lpApplicationName, LPSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes, LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles, DWORD dwCreationFlags, LPVOID lpEnvironment, LPCSTR lpCurrentDirectory, LPSTARTUPINFOA lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation))
 
 HOOKHEAD(NtCreateUserProcess, NTAPI, NTSTATUS, (OUT PHANDLE ProcessHandle, OUT PHANDLE ThreadHandle, IN ACCESS_MASK ProcessDesiredAccess,IN ACCESS_MASK ThreadDesiredAccess, IN OPTIONAL POBJECT_ATTRIBUTES ProcessObjectAttributes, IN OPTIONAL POBJECT_ATTRIBUTES ThreadObjectAttributes, IN ULONG ProcessFlags, IN ULONG ThreadFlags, IN PRTL_USER_PROCESS_PARAMETERS ProcessParameters, IN OUT PPS_CREATE_INFO CreateInfo, IN PPS_ATTRIBUTE_LIST AttributeList))
+
+HOOKHEAD(CoCreateInstance, WINAPI, HRESULT, (IN REFCLSID rclsid, IN LPUNKNOWN pUnkOuter, IN DWORD dwClsContext, IN REFIID riid, OUT LPVOID* ppv))

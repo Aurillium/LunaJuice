@@ -9,11 +9,10 @@
 #include "debug.h"
 #include "events.h"
 #include "hooks.h"
+//#include "mitigations.h"
 #include "server.h"
 
 #include "shared.h"
-
-#include "include/capstone/capstone.h"
 
 #include <polyhook2/IHook.hpp>
 #include <polyhook2/Detour/NatDetour.hpp>
@@ -34,6 +33,7 @@ EXTERN_HOOK(ReadProcessMemory);
 EXTERN_HOOK(CreateProcessW);
 EXTERN_HOOK(CreateProcessA);
 EXTERN_HOOK(NtCreateUserProcess);
+EXTERN_HOOK(CoCreateInstance);
 
 // Install the hooks
 void InstallHooks(HookFlags flags) {
@@ -81,6 +81,10 @@ void InstallHooks(HookFlags flags) {
     }
     if (flags & Enable_NtCreateUserProcess) {
         QUICK_HOOK("ntdll.dll", NtCreateUserProcess);
+    }
+
+    if (flags & Enable_CoCreateInstance) {
+        QUICK_HOOK("ole32.dll", CoCreateInstance);
     }
 }
 

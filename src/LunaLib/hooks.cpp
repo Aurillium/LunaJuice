@@ -7,6 +7,7 @@
 #include "events.h"
 #include "functionlogs.h"
 #include "hooks.h"
+#include "mitigations.h"
 #include "util.h"
 
 // Try to get the last input before the hooks were added
@@ -28,6 +29,11 @@ HOOKDEF(MessageBoxA, WINAPI, BOOL, (HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, 
 
 // Privilege adjust
 HOOKDEF(RtlAdjustPrivilege, WINAPI, NTSTATUS, (IN ULONG Privilege, IN BOOL Enable, IN BOOL CurrentThread, OUT PULONG pPreviousState)) {
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS;
+    BLANKET_NOPERMS_NTSTATUS;
+    BLOCK_ESC;
+
     LOG_FUNCTION_CALL(RtlAdjustPrivilege, Privilege, Enable, CurrentThread, pPreviousState);
 
     LogPrivilegeAdjust(Enable, Privilege);
@@ -55,6 +61,10 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN ULONG                Length,
     IN PLARGE_INTEGER       ByteOffset OPTIONAL,
     IN PULONG               Key OPTIONAL)) {
+
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS;
+    BLANKET_NOPERMS_NTSTATUS;
     
     LOG_FUNCTION_CALL(NtReadFile, FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
 
@@ -81,6 +91,10 @@ HOOKDEF(ReadConsoleA, WINAPI, BOOL, (
     OUT LPDWORD lpNumberOfCharsRead,
     IN OPTIONAL PCONSOLE_READCONSOLE_CONTROL pInputControl)) {
 
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS_BOOL;
+    BLANKET_NOPERMS_BOOL;
+
 
     if (hConsoleInput == GetStdHandle(STD_INPUT_HANDLE)) {
         // If it's our first time, try read the buffer before overwriting
@@ -104,6 +118,10 @@ HOOKDEF(ReadConsoleW, WINAPI, BOOL, (
     IN DWORD nNumberOfCharsToRead,
     OUT LPDWORD lpNumberOfCharsRead,
     IN OPTIONAL PCONSOLE_READCONSOLE_CONTROL pInputControl)) {
+
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS_BOOL;
+    BLANKET_NOPERMS_BOOL;
 
     if (hConsoleInput == GetStdHandle(STD_INPUT_HANDLE)) {
         // If it's our first time, try read the buffer before overwriting
@@ -136,6 +154,11 @@ HOOKDEF(NtWriteFile, NTAPI, NTSTATUS, (
     IN  ULONG            Length,
     IN  PLARGE_INTEGER   ByteOffset OPTIONAL,
     IN  PULONG           Key OPTIONAL)) {
+
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS;
+    BLANKET_NOPERMS_NTSTATUS;
+
     if (FileHandle == GetStdHandle(STD_OUTPUT_HANDLE)) {
         //WRITE_DEBUG("(hooked) ");
         NTSTATUS result = Real_NtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
@@ -154,6 +177,10 @@ HOOKDEF(NtWriteFile, NTAPI, NTSTATUS, (
 
 // Open process
 HOOKDEF(OpenProcess, WINAPI, HANDLE, (IN DWORD dwDesiredAccess, IN BOOL bInheritHandle, IN DWORD dwProcessId)) {
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS;
+    BLANKET_NOPERMS_POINTER;
+
     LOG_FUNCTION_CALL(OpenProcess, dwDesiredAccess, bInheritHandle, dwProcessId);
 
     // Too much output (~30386 lines)
@@ -163,12 +190,20 @@ HOOKDEF(OpenProcess, WINAPI, HANDLE, (IN DWORD dwDesiredAccess, IN BOOL bInherit
 
 // Remote threads
 HOOKDEF(CreateRemoteThread, WINAPI, HANDLE, (HANDLE hProcess, LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, LPDWORD lpThreadId)) {
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS;
+    BLANKET_NOPERMS_POINTER;
+    
     LOG_FUNCTION_CALL(CreateRemoteThread, hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
     
     WRITELINE_DEBUG("Detected remote thread");
     return Real_CreateRemoteThread(hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
 }
 HOOKDEF(CreateRemoteThreadEx, WINAPI, HANDLE, (HANDLE hProcess, LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList, LPDWORD lpThreadId)) {
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS;
+    BLANKET_NOPERMS_POINTER;
+    
     LOG_FUNCTION_CALL(CreateRemoteThreadEx, hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpAttributeList, lpThreadId);
     
     WRITELINE_DEBUG("Detected remote thread");
@@ -177,6 +212,10 @@ HOOKDEF(CreateRemoteThreadEx, WINAPI, HANDLE, (HANDLE hProcess, LPSECURITY_ATTRI
 
 // Remote writes
 HOOKDEF(WriteProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPVOID lpBaseAddress, LPCVOID lpBuffer, SIZE_T nSize, SIZE_T* lpNumberofBytesWritten)) {
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS_BOOL;
+    BLANKET_NOPERMS_BOOL;
+    
     LOG_FUNCTION_CALL(WriteProcessMemory, hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberofBytesWritten);
 
     WRITELINE_DEBUG("Detected process write");
@@ -184,6 +223,10 @@ HOOKDEF(WriteProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPVOID lpBaseAddress
 }
 // Remote reads
 HOOKDEF(ReadProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize, SIZE_T* lpNumberOfBytesRead)) {
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS_BOOL;
+    BLANKET_NOPERMS_BOOL;
+    
     LOG_FUNCTION_CALL(ReadProcessMemory, hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberOfBytesRead);
 
     //WRITELINE_DEBUG("Detected process read");
@@ -192,11 +235,19 @@ HOOKDEF(ReadProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPCVOID lpBaseAddress
 
 // High level process creation
 HOOKDEF(CreateProcessW, WINAPI, BOOL, (LPCWSTR lpApplicationName, LPWSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes, LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles, DWORD dwCreationFlags, LPVOID lpEnvironment, LPCWSTR lpCurrentDirectory, LPSTARTUPINFOW lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation)) {
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS_BOOL;
+    BLANKET_NOPERMS_BOOL;
+    
     // This is currently a way of escaping the poison
     WRITELINE_DEBUG("New process started (wide strings)");
     return Real_CreateProcessW(lpApplicationName, lpCommandLine, lpProcessAttributes, lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment, lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
 }
 HOOKDEF(CreateProcessA, WINAPI, BOOL, (LPCSTR lpApplicationName, LPSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes, LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles, DWORD dwCreationFlags, LPVOID lpEnvironment, LPCSTR lpCurrentDirectory, LPSTARTUPINFOA lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation)) {
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS_BOOL;
+    BLANKET_NOPERMS_BOOL;
+    
     // This is currently a way of escaping the poison
     WRITELINE_DEBUG("New process started (normal strings)");
     return Real_CreateProcessA(lpApplicationName, lpCommandLine, lpProcessAttributes, lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment, lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
@@ -221,6 +272,10 @@ HOOKDEF(NtCreateUserProcess, NTAPI, NTSTATUS, (
     IN OUT PPS_CREATE_INFO CreateInfo,
     IN PPS_ATTRIBUTE_LIST AttributeList
 )) {
+    MITIGATION_SETUP;
+    BLANKET_SUCCESS;
+    BLANKET_NOPERMS_NTSTATUS;
+
     // Fake parent process handle
     //HANDLE hParent = AttributeList->Attributes[5].ValuePtr;
     //DWORD spoofedParentID = GetProcessId(hParent);
@@ -264,4 +319,16 @@ HOOKDEF(NtCreateUserProcess, NTAPI, NTSTATUS, (
     // DO NOT free them here.
 
     return status;
+}
+
+HOOKDEF(CoCreateInstance, WINAPI, HRESULT, (
+    IN REFCLSID rclsid,
+    IN LPUNKNOWN pUnkOuter,
+    IN DWORD dwClsContext,
+    IN REFIID riid,
+    OUT LPVOID* ppv
+)) {
+    HRESULT result = Real_CoCreateInstance(rclsid, pUnkOuter, dwClsContext, riid, ppv);
+
+    return result;
 }
