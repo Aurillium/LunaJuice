@@ -42,19 +42,13 @@
     <ClInclude Include="functionlogs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="hookingv2.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="hookingv3.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="hookingv4.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="hooking.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="server.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mitigations.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -77,20 +71,14 @@
     <ClCompile Include="functionlogs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="hookingv2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="hookingv3.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="hookingv4.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="server.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mitigations.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="hooking.cpp">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
