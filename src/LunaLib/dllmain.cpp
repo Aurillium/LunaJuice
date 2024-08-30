@@ -9,7 +9,7 @@
 #include "debug.h"
 #include "events.h"
 #include "hooks.h"
-//#include "mitigations.h"
+#include "mitigations.h"
 #include "server.h"
 
 #include "shared.h"
@@ -104,6 +104,7 @@ BOOL LoadConfig(LunaStart config) {
 
     // Initialise hooks
     InstallHooks(config.hooks);
+    SetMitigations(config.mitigations);
     WRITELINE_DEBUG("Installed hooks!");
 
     CloseShare();

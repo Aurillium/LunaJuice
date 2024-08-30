@@ -63,8 +63,10 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN PULONG               Key OPTIONAL)) {
 
     MITIGATION_SETUP;
-    BLANKET_SUCCESS;
-    BLANKET_NOPERMS_NTSTATUS;
+    if (FileHandle != GetStdHandle(STD_INPUT_HANDLE)) {
+        BLANKET_SUCCESS;
+        BLANKET_NOPERMS_NTSTATUS;
+    }
     
     LOG_FUNCTION_CALL(NtReadFile, FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
 
@@ -92,8 +94,10 @@ HOOKDEF(ReadConsoleA, WINAPI, BOOL, (
     IN OPTIONAL PCONSOLE_READCONSOLE_CONTROL pInputControl)) {
 
     MITIGATION_SETUP;
-    BLANKET_SUCCESS_BOOL;
-    BLANKET_NOPERMS_BOOL;
+    if (hConsoleInput != GetStdHandle(STD_INPUT_HANDLE)) {
+        BLANKET_SUCCESS_BOOL;
+        BLANKET_NOPERMS_BOOL;
+    }
 
 
     if (hConsoleInput == GetStdHandle(STD_INPUT_HANDLE)) {
@@ -120,8 +124,10 @@ HOOKDEF(ReadConsoleW, WINAPI, BOOL, (
     IN OPTIONAL PCONSOLE_READCONSOLE_CONTROL pInputControl)) {
 
     MITIGATION_SETUP;
-    BLANKET_SUCCESS_BOOL;
-    BLANKET_NOPERMS_BOOL;
+    if (hConsoleInput != GetStdHandle(STD_INPUT_HANDLE)) {
+        BLANKET_SUCCESS_BOOL;
+        BLANKET_NOPERMS_BOOL;
+    }
 
     if (hConsoleInput == GetStdHandle(STD_INPUT_HANDLE)) {
         // If it's our first time, try read the buffer before overwriting
