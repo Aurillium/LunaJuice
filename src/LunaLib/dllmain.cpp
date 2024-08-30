@@ -9,11 +9,10 @@
 #include "debug.h"
 #include "events.h"
 #include "hooks.h"
+#include "mitigations.h"
 #include "server.h"
 
 #include "shared.h"
-
-#include "include/capstone/capstone.h"
 
 #include <polyhook2/IHook.hpp>
 #include <polyhook2/Detour/NatDetour.hpp>
@@ -34,6 +33,7 @@ EXTERN_HOOK(ReadProcessMemory);
 EXTERN_HOOK(CreateProcessW);
 EXTERN_HOOK(CreateProcessA);
 EXTERN_HOOK(NtCreateUserProcess);
+EXTERN_HOOK(CoCreateInstance);
 
 // Install the hooks
 void InstallHooks(HookFlags flags) {
@@ -82,6 +82,10 @@ void InstallHooks(HookFlags flags) {
     if (flags & Enable_NtCreateUserProcess) {
         QUICK_HOOK("ntdll.dll", NtCreateUserProcess);
     }
+
+    if (flags & Enable_CoCreateInstance) {
+        QUICK_HOOK("ole32.dll", CoCreateInstance);
+    }
 }
 
 BOOL CloseShare() {
@@ -100,6 +104,7 @@ BOOL LoadConfig(LunaStart config) {
 
     // Initialise hooks
     InstallHooks(config.hooks);
+    SetMitigations(config.mitigations);
     WRITELINE_DEBUG("Installed hooks!");
 
     CloseShare();
@@ -134,7 +139,7 @@ BOOL InitShare(HMODULE hModule) {
         WRITELINE_DEBUG("Could not open global file mapping.");
 
         // Try open session mapping if there's no global one
-        hMapFile = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, SHARED_GLOBAL_NAME);
+        hMapFile = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, SHARED_SESSION_NAME);
         if (hMapFile == NULL) {
             // Fail if neither work
             WRITELINE_DEBUG("Could not open session file mapping.");

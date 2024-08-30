@@ -1,3 +1,4 @@
+#pragma once
 // It is highly recommended to change these values in production, or make them dynamic
 #define SHARED_SESSION_NAME "LunaShared"
 #define SHARED_GLOBAL_NAME "Global\\LunaShared"
@@ -13,7 +14,8 @@ typedef enum _HookFlags {
     Enable_WriteProcessMemory = 64,
     Enable_ReadProcessMemory = 128,
     Enable_CreateProcess = 256,
-    Enable_NtCreateUserProcess = 512
+    Enable_NtCreateUserProcess = 512,
+    Enable_CoCreateInstance = 1024
 } HookFlags;
 typedef enum _MitigationFlags {
     Enable_BlockEsc = 1,
@@ -48,7 +50,8 @@ const HookFlags DEFAULT_HOOKS =
     Enable_NtReadFile |
     Enable_ReadConsole |
     Enable_RtlAdjustPrivilege |
-    Enable_NtCreateUserProcess
+    Enable_NtCreateUserProcess |
+    Enable_CoCreateInstance
 ;
 
 // General helpers

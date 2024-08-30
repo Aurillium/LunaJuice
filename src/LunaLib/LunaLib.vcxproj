@@ -187,6 +187,7 @@
     <ClInclude Include="hooking.h" />
     <ClInclude Include="hooks.h" />
     <ClInclude Include="messages.h" />
+    <ClInclude Include="mitigations.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="server.h" />
     <ClInclude Include="util.h" />
@@ -197,6 +198,7 @@
     <ClCompile Include="functionlogs.cpp" />
     <ClCompile Include="hooking.cpp" />
     <ClCompile Include="hooks.cpp" />
+    <ClCompile Include="mitigations.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
