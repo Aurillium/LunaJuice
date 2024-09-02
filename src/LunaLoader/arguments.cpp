@@ -5,7 +5,9 @@
 #include "output.h"
 #include "util.h"
 
-#include "shared.h"
+#include "shared_util.h"
+
+#include "Config.h"
 
 // A simple (mostly) C argument parser
 // (Anything not C is trivial to implement in C)
@@ -308,7 +310,7 @@ void DisplayUsage() {
 		"Miscellaneous:                   " << std::endl <<
 		"/p, /pid:pid                     Process ID of target." << std::endl <<
 		"/n, /name:process_name           Find target by process name (less accurate)." << std::endl <<
-		"/i, /implant:implant_name        Implant name to connect with (<=" << MAX_ID_LENGTH << " chars)." << std::endl <<
+		"/i, /implant:implant_name        Implant name to connect with (<=" << LUNA_MAX_ID_LENGTH << " chars)." << std::endl <<
 		"" << std::endl <<
 		"If one argument fails to parse, the next equivalent argument with the same name will be taken instead." << std::endl <<
 		"More information available on the GitHub wiki: https://github.com/Aurillium/LunaJuice/wiki" << std::endl <<

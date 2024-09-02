@@ -1,18 +1,18 @@
 #include "pch.h"
 #include <Windows.h>
 
-#include "shared.h"
+#include "shared_util.h"
 #include "mitigations.h"
 
-static MitigationFlags mitigations;
+static LunaAPI::MitigationFlags mitigations;
 
-MitigationFlags GetMitigations()
+LunaAPI::MitigationFlags GetMitigations()
 {
 	return mitigations;
 }
 
 // Potentially we would conduct some checks here
-void SetMitigations(MitigationFlags flags)
+void SetMitigations(LunaAPI::MitigationFlags flags)
 {
 	mitigations = flags;
 }

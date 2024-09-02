@@ -4,7 +4,9 @@
 
 #include "debug.h"
 
-#include "shared.h"
+#include "Config.h"
+
+#include "shared_util.h"
 
 HANDLE hPipeRPC;
 
@@ -41,8 +43,8 @@ BOOL LJHandshakeServer() {
 BOOL BeginPipe(LPVOID lpParam) {
     char* id = (char*)lpParam;
     // The stub is 10 chars long (incl null byte), then ID is 24 (excl null byte)
-    char pipeName[MAX_ID_LENGTH + 10] = "\\\\.\\pipe\\";
-    for (size_t i = 0; i < MAX_ID_LENGTH + 1; i++) {
+    char pipeName[LUNA_MAX_ID_LENGTH + 10] = "\\\\.\\pipe\\";
+    for (size_t i = 0; i < LUNA_MAX_ID_LENGTH + 1; i++) {
         pipeName[i + 9] = id[i];
     }
 
