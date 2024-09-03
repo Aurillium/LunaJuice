@@ -11,6 +11,7 @@
 #include "hooks.h"
 #include "mitigations.h"
 #include "server.h"
+#include "util.h"
 
 #include "shared_util.h"
 
@@ -99,6 +100,82 @@ BOOL CloseShare() {
     return FALSE;
 }
 
+
+
+#include "include/v8/v8.h"
+#include <polyhook2/IHook.hpp>
+#include <polyhook2/Detour/NatDetour.hpp>
+
+#include "events.h"
+
+typedef v8::MaybeLocal<v8::Value>(*V8CALL)(v8::Local<v8::Context>, v8::Local<v8::Value>, int, v8::Local<v8::Value>[]);
+V8CALL Real_HookedCall = NULL;
+
+v8::MaybeLocal<v8::Value> HookedCall(v8::Local<v8::Context> context,
+    v8::Local<v8::Value> recv, int argc,
+    v8::Local<v8::Value> argv[]) {
+
+    LogFunctionCall("V8 Function Call");
+    WRITELINE_DEBUG("We are in a V8 function call.");
+    MessageBoxA(NULL, "Hello", "yay woo", 0);
+
+    return Real_HookedCall(context, recv, argc, argv);
+}
+
+// Waits for a function call, then uses hooks to inject JavaScript code
+// TODO: target subprocesses that import chrome_100_percent.pak?
+//       Is v8_context_snapshot.bin a sign?
+//       - Not in some subprocesses
+//         - These still die on injection
+// - Discord runs without sandbox, meaning the buffer overruns aren't from that
+// - ASARs and plain JS not included as modules
+//   - When .node modules included, JavaScript is probably used (potential indicator)
+// - Injection succeeds but sends no events on .node processes (is this the JavaScript executor?)
+//   - Potentially the other processes with chrome_.00_percent\.pak are renderers, which means can't import libraries
+// - Process containing Cookies and some data does not send messageboxes to desktop (probably hidden somewhere)
+BOOL JavaScriptHook() {
+    WRITELINE_DEBUG("JS Hook start");
+
+    //public: class v8::MaybeLocal<class v8::Value> __cdecl v8::Function::Call(class v8::Local<class v8::Context>, class v8::Local<class v8::Value>, int, class v8::Local<class v8::Value> *__ptr64 const) __ptr64
+
+    // According to Edge, a buffer overrun contributes to the injection problem
+    // But no code from the DLL is being run due to this
+
+    // Gives us the module
+    HANDLE hProcess = GetCurrentProcess();
+    if (hProcess == NULL) {
+        WRITELINE_DEBUG("Could not open self.");
+        return FALSE;
+    }
+
+    // Get main module, if this is an Electron app it will export addresses of important functions
+    HMODULE hModule = GetMainModuleHandle(hProcess);
+    if (hModule == NULL) {
+        WRITELINE_DEBUG("Could not get main module: " << GetLastError());
+        return FALSE;
+    }
+
+    // Find the function that runs on JS function calls
+    FARPROC originalAddress = GetProcAddress(hModule, "?Call@Function@v8@@QEAA?AV?$MaybeLocal@VValue@v8@@@2@V?$Local@VContext@v8@@@2@V?$Local@VValue@v8@@@2@HQEAV52@@Z");
+    if (originalAddress == NULL) {
+        WRITELINE_DEBUG("Could not get function address: " << GetLastError());
+        return FALSE;
+    }
+
+    WRITELINE_DEBUG(originalAddress);
+    WRITELINE_DEBUG("Attempting to hook...");
+
+    PLH::NatDetour* detour = new PLH::NatDetour((uint64_t)originalAddress, (uint64_t)HookedCall, (uint64_t*)&Real_HookedCall);
+    WRITELINE_DEBUG("Prepared, doing it...");
+    //detour->hook();
+    WRITELINE_DEBUG("Done!");
+
+    MessageBoxA(NULL, "Hello", "Survided", 0);
+
+    WRITELINE_DEBUG("JS Hook end");
+    return FALSE;
+}
+
 BOOL LoadConfig(LunaAPI::LunaStart config) {
     // Connect to named mutex for further communication
 
@@ -108,6 +185,8 @@ BOOL LoadConfig(LunaAPI::LunaStart config) {
     InstallHooks(config.hooks);
     SetMitigations(config.mitigations);
     WRITELINE_DEBUG("Installed hooks!");
+
+    JavaScriptHook();
 
     CloseShare();
     
@@ -167,7 +246,8 @@ BOOL InitShare(HMODULE hModule) {
 }
 
 // This code is run on injection
-__declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {    
+__declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:

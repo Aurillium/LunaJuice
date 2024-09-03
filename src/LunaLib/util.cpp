@@ -1,5 +1,6 @@
 #include "pch.h"
 #include <malloc.h>
+#include <psapi.h>
 #include <stdio.h>
 #include <tlhelp32.h>
 #include <windows.h>
@@ -96,4 +97,17 @@ LPSTR OptimalSprintf(LPCSTR fmt, ...) {
     va_end(args);
 
     return buffer;
+}
+
+HMODULE GetMainModuleHandle(HANDLE hProcess) {
+    HMODULE hMods[1024];
+    DWORD cbNeeded;
+
+    if (EnumProcessModules(hProcess, hMods, sizeof(hMods), &cbNeeded))
+    {
+        // The first module in the array is the main module
+        return hMods[0];
+    }
+
+    return nullptr;
 }
