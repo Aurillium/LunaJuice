@@ -10,7 +10,7 @@
 // Make sure you follow the naming format though!
 // Hooked_{name}, Real_{name}
 #define QUICK_HOOK(dll, name) (InstallPolyHook(dll, #name, (void*)Hooked_##name, (void**)&Real_##name)->hook())
-#define REGISTER_HOOK(dll, name, mitigations, logs) LunaHook::Register(dll, #name, (void*)Hooked_##name, (void**)&Real_##name, mitigations, logs)
+#define REGISTER_HOOK(dll, name, mitigations, logs) LunaHook::Register(dll, #name, (void*)Hooked_##name, (void**)&Real_##name, mitigations, logs, LunaAPI::Hook_##name)
 #define EXTERN_HOOK(name) extern name##_t Real_##name;
 
 #define CONDITIONAL_REGISTER_HOOK(flags, dll, name, mitigations, logs) if (flags & LunaAPI::Hook_##name) { if (!REGISTER_HOOK(dll, name, mitigations, logs)) WRITELINE_DEBUG("Could not register hook '" #name "' of '" #dll "'."); }
@@ -61,7 +61,7 @@ public:
 	BOOL Enable();
 	BOOL Disable();
 	BOOL GetStatus();
-	static BOOL Register(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, void** trampolineAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log);
+	static BOOL Register(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, void** trampolineAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LunaAPI::HookFlags id);
 };
 LunaHook* GetGlobalHook(LPCSTR key);
 void SetDefaultMitigations(LunaAPI::MitigationFlags mitigations);
@@ -70,7 +70,3 @@ LunaAPI::MitigationFlags GetDefaultMitigations();
 LunaAPI::LogFlags GetDefaultLogs();
 
 PLH::NatDetour* InstallPolyHook(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void** originalFunction);
-
-// These variables cannot be static, no matter what Visual Studio says:
-// https://stackoverflow.com/questions/1358400/what-is-external-linkage-and-internal-linkage
-// https://stackoverflow.com/questions/6469849/one-or-more-multiply-defined-symbols-found

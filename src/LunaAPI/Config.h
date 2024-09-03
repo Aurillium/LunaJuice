@@ -46,6 +46,12 @@ namespace LunaAPI {
         Log_SpoofPPID = 64,
         Log_All = 0xFFFFFFFF
     } LogFlags;
+    typedef enum _SecuritySettings {
+        // 2 bits
+        BlockSimilar = 1,   // Block similar DLLs to LunaLib from loading
+        BlockUnsigned = 2,  // Block all unsigned DLLs (and signed LunaLib) from loading
+        BlockAll = 3        // Block all DLL loading
+    } SecuritySettings;
 
     inline HookFlags operator|(const HookFlags a, const HookFlags b) {
         return (HookFlags)((int)a | (int)b);

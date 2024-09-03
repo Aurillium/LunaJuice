@@ -7,6 +7,8 @@
 
 #include "debug.h"
 
+#include "Config.h"
+
 char* ConvertUnicodeStringToAnsi(const UNICODE_STRING& unicodeString) {
     // Determine the required buffer size
     int bufferSize = WideCharToMultiByte(
@@ -96,4 +98,13 @@ LPSTR OptimalSprintf(LPCSTR fmt, ...) {
     va_end(args);
 
     return buffer;
+}
+
+char FlagIndex(LunaAPI::HookFlags flag) {
+    char index = 0;
+    size_t value = flag;
+    while (!(value & 1) || index == sizeof(LunaAPI::HookFlags) * 8) {
+        value >>= 1;
+    }
+    return index;
 }

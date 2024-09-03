@@ -616,6 +616,7 @@
     <ClInclude Include="output.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Config.h" />
+    <ClInclude Include="Protocol.h" />
     <ClInclude Include="random.h" />
   </ItemGroup>
   <ItemGroup>

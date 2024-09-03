@@ -180,6 +180,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="commands.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="events.h" />
     <ClInclude Include="forbidden_headers.h" />
@@ -194,6 +195,7 @@
     <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="commands.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="events.cpp" />
     <ClCompile Include="functionlogs.cpp" />

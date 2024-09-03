@@ -1,9 +1,11 @@
 #include "pch.h"
+#include <list>
 #include <map>
 #include <Windows.h>
 
 #include "debug.h"
 #include "hooking.h"
+#include "util.h"
 
 #include <polyhook2/IHook.hpp>
 #include <polyhook2/Detour/NatDetour.hpp>
@@ -12,6 +14,9 @@
 std::map<LPCSTR, LunaHook*> GLOBAL_HOOKS = std::map<LPCSTR, LunaHook*>();
 LunaAPI::MitigationFlags DEFAULT_MITIGATIONS = LunaAPI::Mitigate_None;
 LunaAPI::LogFlags DEFAULT_LOGS = LunaAPI::Log_All;
+
+// We can modify hooks by their bit in the enum, faster than resolving a map
+std::list<LunaHook*>* FAST_REF[sizeof(LunaAPI::HookFlags) * 8];
 
 PLH::NatDetour* InstallPolyHook(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void** originalFunction) {
     HMODULE hModule = GetModuleHandleA(moduleName);
@@ -77,15 +82,22 @@ BOOL LunaHook::Disable() {
 LunaHook* GetGlobalHook(LPCSTR key) {
     return GLOBAL_HOOKS[key];
 }
-BOOL LunaHook::Register(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, void** trampolineAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log) {
+BOOL LunaHook::Register(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, void** trampolineAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LunaAPI::HookFlags id) {
     // Try create and register a hook
     LunaHook* hook = new LunaHook(moduleName, functionName, hookAddress, trampolineAddress, mitigate, log);
-    if (hook->registerSuccess) {
-        return TRUE;
+    if (!hook->registerSuccess) {
+        // Clean up and exit on fail
+        delete hook;
+        return FALSE;
     }
-    // If it fails, clean up
-    delete hook;
-    return FALSE;
+    
+    char index = FlagIndex(id);
+    if (FAST_REF[index] == NULL) {
+        FAST_REF[index] = new std::list<LunaHook*>();
+            
+    }
+    FAST_REF[index]->push_back(hook);
+    return TRUE;
 }
 
 void SetDefaultMitigations(LunaAPI::MitigationFlags mitigations) {
