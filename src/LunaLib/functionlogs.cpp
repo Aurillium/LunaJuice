@@ -7,7 +7,7 @@
 #include "functionlogs.h"
 #include "util.h"
 
-#include "shared.h"
+#include "shared_util.h"
 
 // This could be using both indexing and direct memory operations
 // That could cause instability when type sizes are unexpected

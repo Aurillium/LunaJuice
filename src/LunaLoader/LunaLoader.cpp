@@ -7,15 +7,19 @@
 #include <tlhelp32.h>
 
 #include "arguments.h"
-#include "comms.h"
 #include "output.h"
 #include "resource.h"
 #include "util.h"
 
-#include "shared.h"
+#include "Config.h"
+#include "Loader.h"
+#include "Implant.h"
 
-bool verboseEnabled = false;
-LunaShared initData;
+#include "shared_util.h"
+
+BOOL verboseEnabled = false;
+LunaAPI::LunaShared initData;
+LunaAPI::LunaStart config;
 
 const DWORD SE_PRIVILEGE_DISABLED = 0x00000000;
 
@@ -210,118 +214,139 @@ BOOL DropPrivileges(HANDLE hProcess, LUNA_ARGUMENTS *arguments) {
     return TRUE;
 }
 
-static BOOL InjectDLL(HANDLE hProcess, LPCSTR dllPath)
-{
-    // Prepare shared object
+// Create config data
+// Consumes mitigations and hooks
+BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
+    // Set ID
+    if (arguments->name != NULL && arguments->name[0] != 0)
+        config.SetID(arguments->name);
 
-    SECURITY_ATTRIBUTES sa;
-    sa.nLength = sizeof(sa);
-    sa.bInheritHandle = FALSE;
+    // Set up hooks
 
-    // Define a security descriptor with access for all users
-    PSECURITY_DESCRIPTOR psd = (PSECURITY_DESCRIPTOR)LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
-    if (psd == NULL) {
-        DISP_WINERROR("Could not allocate memory for security descriptor");
-        return FALSE;
+    // Loop over and OR with hook flags in config
+    size_t startIndex = 0, i = 0;
+    BOOL inText = FALSE;
+
+    DISP_VERBOSE("Starting to add hooks...");
+
+    if (arguments->hooks[0] == 0) {
+        UPDATE_VERBOSE("No data, using default hooks.");
     }
-    InitializeSecurityDescriptor(psd, SECURITY_DESCRIPTOR_REVISION);
-    if (psd == NULL) {
-        DISP_WINERROR("Could not initialise security descriptor for mapped file");
-        return FALSE;
-    }
-    SetSecurityDescriptorDacl(psd, TRUE, (PACL)NULL, FALSE);
+    else {
+        // Custom hooks specified, start with none and build
+        config.hooks = LunaAPI::NoHooks;
 
-    sa.lpSecurityDescriptor = psd;
+        while (true) {
+            CHAR current = arguments->hooks[i];
 
-    HANDLE hFileMapping;
-    hFileMapping = CreateFileMappingA(
-        INVALID_HANDLE_VALUE,       // Use paging file
-        &sa,                        // Security attributes
-        PAGE_READWRITE,             // Read/write access
-        0,                          // Maximum object size (high-order DWORD)
-        1024,                       // Maximum object size (low-order DWORD)
-        SHARED_GLOBAL_NAME);        // Name of the file mapping object
-    if (hFileMapping == NULL) {
-        if (GetLastError() == ERROR_ACCESS_DENIED) {
-            // Try as a regular user
-            UPDATE_WARN("Could not create file mapping as admin, can only operate on programs run by your user");
-            hFileMapping = CreateFileMappingA(
-                INVALID_HANDLE_VALUE,       // Use paging file
-                NULL,                       // Security attributes (default)
-                PAGE_READWRITE,             // Read/write access
-                0,                          // Maximum object size (high-order DWORD)
-                1024,                       // Maximum object size (low-order DWORD)
-                SHARED_SESSION_NAME);       // This time use a local session object
-            if (hFileMapping == NULL) {
-                goto filemap_fail;
+            // When we get to the end of a hook, add it to config
+            if (IS_WHITESPACE(current) || current == ',' || current == 0) {
+                // We've hit whitespace or a comma after being in text, time to drop
+                if (inText) {
+
+                    // This is technically constant/static because it comes directly from argv
+                    // We can modify it though
+                    ((char*)arguments->hooks)[i] = 0;
+
+                    // Get hook name to compare
+                    LPCSTR hookName = &arguments->hooks[startIndex];
+
+                    // Compare and add hooks
+                    if (NoCapCmp("DEFAULT", hookName)) {
+                        config.hooks = config.hooks | LunaAPI::DEFAULT_HOOKS;
+                    }
+                    else ADD_FLAG_CMP(NtReadFile, hookName, config.hooks)
+                    else ADD_FLAG_CMP(NtWriteFile, hookName, config.hooks)
+                    else ADD_FLAG_CMP(ReadConsole, hookName, config.hooks)
+                    else ADD_FLAG_CMP(RtlAdjustPrivilege, hookName, config.hooks)
+                    else ADD_FLAG_CMP(OpenProcess, hookName, config.hooks)
+                    else ADD_FLAG_CMP(CreateRemoteThread, hookName, config.hooks)
+                    else ADD_FLAG_CMP(WriteProcessMemory, hookName, config.hooks)
+                    else ADD_FLAG_CMP(ReadProcessMemory, hookName, config.hooks)
+                    else ADD_FLAG_CMP(CreateProcess, hookName, config.hooks)
+                    else ADD_FLAG_CMP(NtCreateUserProcess, hookName, config.hooks)
+                    else {
+                        DISP_WARN("Could not find hook '" << hookName << "'");
+                        }
+
+                        UPDATE_VERBOSE("Added " << hookName);
+                        inText = FALSE;
+                }
+
+                // Process from after whitespace/comma
+                startIndex = i + 1;
             }
-        } else {
-            // We end up here if the error was unrelated to permissions
-            filemap_fail:
-            DISP_WINERROR("Could not create file mapping");
-            return FALSE;
+            else {
+                // If not whitespace/comma, we're in a privilege.
+                inText = TRUE;
+            }
+
+            // We've reached the end
+            if (current == 0) {
+                break;
+            }
+
+            i++;
         }
     }
 
-    // Get our shared memory pointer
-    LPVOID lpMemFile;
-    lpMemFile = MapViewOfFile(hFileMapping, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-    if (lpMemFile == NULL) {
-        DISP_WINERROR("Could not map shared memory");
-        return FALSE;
+    // Add mitigations
+
+    startIndex = 0, i = 0;
+    inText = FALSE;
+
+    DISP_VERBOSE("Starting to add mitigations...");
+
+    if (arguments->mitigations[0] == 0) {
+        UPDATE_VERBOSE("No data, no mitigations active.");
     }
+    else {
+        while (true) {
+            CHAR current = arguments->mitigations[i];
 
-    // Inject saved DLL
+            // When we get to the end of a hook, add it to config
+            if (IS_WHITESPACE(current) || current == ',' || current == 0) {
+                // We've hit whitespace or a comma after being in text, time to drop
+                if (inText) {
 
-    DWORD byteLength = (DWORD)((MAX_PATH) * sizeof(CHAR));
-    HANDLE allocMemAddress = VirtualAllocEx(hProcess, NULL, byteLength, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
-    if (allocMemAddress == NULL)
-    {
-        DISP_WINERROR("Failed to allocate memory for injection in target");
-        return FALSE;
+                    // This is technically constant/static because it comes directly from argv
+                    // We can modify it though
+                    ((char*)arguments->mitigations)[i] = 0;
+
+                    // Get hook name to compare
+                    LPCSTR mitigationName = &arguments->mitigations[startIndex];
+
+                    // Compare and add mitigations
+                    ADD_FLAG_CMP(BlockEsc, mitigationName, config.mitigations)
+                    else ADD_FLAG_CMP(BlanketFakeSuccess, mitigationName, config.mitigations)
+                    else ADD_FLAG_CMP(BlanketNoPerms, mitigationName, config.mitigations)
+                    else {
+                DISP_WARN("Could not find mitigation '" << mitigationName << "'");
+                }
+
+                UPDATE_VERBOSE("Added " << mitigationName);
+                inText = FALSE;
+                }
+
+                // Process from after whitespace/comma
+                startIndex = i + 1;
+            }
+            else {
+                // If not whitespace/comma, we're in a privilege.
+                inText = TRUE;
+            }
+
+            // We've reached the end
+            if (current == 0) {
+                break;
+            }
+
+            i++;
+        }
     }
-    SIZE_T written = 0;
-    WriteProcessMemory(hProcess, allocMemAddress, dllPath, byteLength, &written);
-
-    // This block creates a remote thread to load the DLL
-    HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
-    if (hKernel32 == NULL) {
-        DISP_WINERROR("Could not find kernel32 DLL");
-        VirtualFreeEx(hProcess, allocMemAddress, 0, MEM_RELEASE);
-        return FALSE;
-    }
-    // Could improve this by using LoadLibraryEx and passing a handle? -- No, it's reserved for future use
-    FARPROC hLoadLibrary = GetProcAddress(hKernel32, "LoadLibraryA");
-    if (hKernel32 == NULL) {
-        DISP_WINERROR("Could not find LoadLibraryA function");
-        VirtualFreeEx(hProcess, allocMemAddress, 0, MEM_RELEASE);
-        return FALSE;
-    }
-    HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)hLoadLibrary, allocMemAddress, 0, NULL);
-
-    if (hThread == NULL) {
-        DISP_WINERROR("Failed to create remote thread");
-        VirtualFreeEx(hProcess, allocMemAddress, 0, MEM_RELEASE);
-        return FALSE;
-    }
-
-    // Wait for thread to exit
-    WaitForSingleObject(hThread, INFINITE);
-    // Clean up
-    VirtualFreeEx(hProcess, allocMemAddress, 0, MEM_RELEASE);
-    CloseHandle(hThread);
-
-    // Now save the data we receive so we can init
-
-    memcpy(&initData, lpMemFile, sizeof(LunaShared));
-
-    LocalFree(psd);
-    UnmapViewOfFile(lpMemFile);
-    CloseHandle(hFileMapping);
 
     return TRUE;
 }
-
 
 BOOL PrintBanner(HANDLE hStdout) {
 
@@ -462,11 +487,13 @@ int main(int argc, char* argv[])
 
         if (arguments.name[0] == 0) {
             DISP_ERROR("Expected an implant ID. Specify this with /i:<value>");
-        } else {
-            LoadCustomID(arguments.name);
+            return 1;
         }
+        LunaAPI::LunaImplant implant = LunaAPI::LunaImplant(arguments.name);
 
-        ConnectLunaJuice();
+        implant.Connect();
+
+        return 0;
 
     } else {
         // Injection flow
@@ -520,7 +547,7 @@ int main(int argc, char* argv[])
         UPDATE_LOG("Dropped privileges successfully!");
 
         DISP_LOG("Injecting monitor DLL...");
-        if (!InjectDLL(hProcess, dllPath)) {
+        if (!LunaAPI::InjectDLL(hProcess, dllPath, &initData)) {
             DISP_ERROR("Could not inject DLL into target");
             ret = 1;
             goto cleanup;
@@ -528,7 +555,7 @@ int main(int argc, char* argv[])
         UPDATE_LOG("DLL injected successfully!");
 
         DISP_LOG("Initialising LunaJuice...");
-        if (!InitialiseLunaJuice(hProcess, (LPTHREAD_START_ROUTINE)initData.lpInit)) {
+        if (!LunaAPI::InitialiseLunaJuice(hProcess, (LPTHREAD_START_ROUTINE)initData.lpInit, config)) {
             DISP_ERROR("Could not initialise LunaJuice");
             return 1;
         }

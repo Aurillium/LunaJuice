@@ -12,7 +12,9 @@
 #include "mitigations.h"
 #include "server.h"
 
-#include "shared.h"
+#include "shared_util.h"
+
+#include "Config.h"
 
 #include <polyhook2/IHook.hpp>
 #include <polyhook2/Detour/NatDetour.hpp>
@@ -36,54 +38,54 @@ EXTERN_HOOK(NtCreateUserProcess);
 EXTERN_HOOK(CoCreateInstance);
 
 // Install the hooks
-void InstallHooks(HookFlags flags) {
+void InstallHooks(LunaAPI::HookFlags flags) {
 #if _DEBUG
     EXTERN_HOOK(MessageBoxA);
     QUICK_HOOK("user32.dll", MessageBoxA);
 #endif
 
     // File read/write
-    if (flags & Enable_NtReadFile) {
+    if (flags & LunaAPI::Enable_NtReadFile) {
         QUICK_HOOK("ntdll.dll", NtReadFile);
     }
-    if (flags & Enable_NtWriteFile) {
+    if (flags & LunaAPI::Enable_NtWriteFile) {
         QUICK_HOOK("ntdll.dll", NtWriteFile);
     }
     // Console read
-    if (flags & Enable_ReadConsole) {
+    if (flags & LunaAPI::Enable_ReadConsole) {
         QUICK_HOOK("kernel32.dll", ReadConsoleA);
         QUICK_HOOK("kernel32.dll", ReadConsoleW);
     }
     
-    if (flags & Enable_RtlAdjustPrivilege) {
+    if (flags & LunaAPI::Enable_RtlAdjustPrivilege) {
         QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
     }
 
     // Remote processes
-    if (flags & Enable_OpenProcess) {
+    if (flags & LunaAPI::Enable_OpenProcess) {
         QUICK_HOOK("kernel32.dll", OpenProcess);
     }
-    if (flags & Enable_CreateRemoteThread) {
+    if (flags & LunaAPI::Enable_CreateRemoteThread) {
         QUICK_HOOK("kernel32.dll", CreateRemoteThread);
         QUICK_HOOK("kernel32.dll", CreateRemoteThreadEx);
     }
-    if (flags & Enable_WriteProcessMemory) {
+    if (flags & LunaAPI::Enable_WriteProcessMemory) {
         QUICK_HOOK("kernel32.dll", WriteProcessMemory);
     }
-    if (flags & Enable_ReadProcessMemory) {
+    if (flags & LunaAPI::Enable_ReadProcessMemory) {
         QUICK_HOOK("kernel32.dll", ReadProcessMemory);
     }
     
     // Process start
-    if (flags & Enable_CreateProcess) {
+    if (flags & LunaAPI::Enable_CreateProcess) {
         QUICK_HOOK("kernel32.dll", CreateProcessW);
         QUICK_HOOK("kernel32.dll", CreateProcessA);
     }
-    if (flags & Enable_NtCreateUserProcess) {
+    if (flags & LunaAPI::Enable_NtCreateUserProcess) {
         QUICK_HOOK("ntdll.dll", NtCreateUserProcess);
     }
 
-    if (flags & Enable_CoCreateInstance) {
+    if (flags & LunaAPI::Enable_CoCreateInstance) {
         QUICK_HOOK("ole32.dll", CoCreateInstance);
     }
 }
@@ -97,7 +99,7 @@ BOOL CloseShare() {
     return FALSE;
 }
 
-BOOL LoadConfig(LunaStart config) {
+BOOL LoadConfig(LunaAPI::LunaStart config) {
     // Connect to named mutex for further communication
 
     WRITELINE_DEBUG("Hello, my name is " << config.id << "!");
@@ -131,7 +133,7 @@ BOOL LoadConfig(LunaStart config) {
 
 // Set up and populate shared memory for init
 BOOL InitShare(HMODULE hModule) {
-    LunaShared shared;
+    LunaAPI::LunaShared shared;
 
     // Get a handle to our file map
     hMapFile = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, SHARED_GLOBAL_NAME);
@@ -155,11 +157,11 @@ BOOL InitShare(HMODULE hModule) {
     }
 
     // Set shared memory to hold what our remote process needs
-    memset(lpMemFile, 0, sizeof(LunaShared));
+    memset(lpMemFile, 0, sizeof(LunaAPI::LunaShared));
     shared.hModule = hModule;
     shared.lpInit = (LPDWORD)LoadConfig;
     shared.dwOffset = (DWORD)shared.lpInit - (DWORD)shared.hModule;
-    memcpy(lpMemFile, &shared, sizeof(LunaShared));
+    memcpy(lpMemFile, &shared, sizeof(LunaAPI::LunaShared));
 
     return TRUE;
 }
