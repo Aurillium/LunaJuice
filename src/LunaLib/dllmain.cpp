@@ -38,56 +38,19 @@ EXTERN_HOOK(NtCreateUserProcess);
 EXTERN_HOOK(CoCreateInstance);
 
 // Install the hooks
-void InstallHooks(LunaAPI::HookFlags flags) {
-#if _DEBUG
-    EXTERN_HOOK(MessageBoxA);
-    QUICK_HOOK("user32.dll", MessageBoxA);
-#endif
-
-    // File read/write
-    if (flags & LunaAPI::Enable_NtReadFile) {
-        QUICK_HOOK("ntdll.dll", NtReadFile);
-    }
-    if (flags & LunaAPI::Enable_NtWriteFile) {
-        QUICK_HOOK("ntdll.dll", NtWriteFile);
-    }
-    // Console read
-    if (flags & LunaAPI::Enable_ReadConsole) {
-        QUICK_HOOK("kernel32.dll", ReadConsoleA);
-        QUICK_HOOK("kernel32.dll", ReadConsoleW);
-    }
-    
-    if (flags & LunaAPI::Enable_RtlAdjustPrivilege) {
-        QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
-    }
-
-    // Remote processes
-    if (flags & LunaAPI::Enable_OpenProcess) {
-        QUICK_HOOK("kernel32.dll", OpenProcess);
-    }
-    if (flags & LunaAPI::Enable_CreateRemoteThread) {
-        QUICK_HOOK("kernel32.dll", CreateRemoteThread);
-        QUICK_HOOK("kernel32.dll", CreateRemoteThreadEx);
-    }
-    if (flags & LunaAPI::Enable_WriteProcessMemory) {
-        QUICK_HOOK("kernel32.dll", WriteProcessMemory);
-    }
-    if (flags & LunaAPI::Enable_ReadProcessMemory) {
-        QUICK_HOOK("kernel32.dll", ReadProcessMemory);
-    }
-    
-    // Process start
-    if (flags & LunaAPI::Enable_CreateProcess) {
-        QUICK_HOOK("kernel32.dll", CreateProcessW);
-        QUICK_HOOK("kernel32.dll", CreateProcessA);
-    }
-    if (flags & LunaAPI::Enable_NtCreateUserProcess) {
-        QUICK_HOOK("ntdll.dll", NtCreateUserProcess);
-    }
-
-    if (flags & LunaAPI::Enable_CoCreateInstance) {
-        QUICK_HOOK("ole32.dll", CoCreateInstance);
-    }
+void InstallInitialHooks(LunaAPI::HookFlags flags, LunaAPI::MitigationFlags mitigations, LunaAPI::LogFlags logs) {
+    CONDITIONAL_REGISTER_HOOK(flags, "ole32.dll", CoCreateInstance, mitigations, logs);
+    CONDITIONAL_REGISTER_HOOK(flags, "ntdll.dll", NtReadFile, mitigations, logs);
+    CONDITIONAL_REGISTER_HOOK(flags, "ntdll.dll", NtWriteFile, mitigations, logs);
+    CONDITIONAL_REGISTER_HOOK(flags, "ntdll.dll", RtlAdjustPrivilege, mitigations, logs);
+    CONDITIONAL_REGISTER_HOOK(flags, "ntdll.dll", NtCreateUserProcess, mitigations, logs);
+    CONDITIONAL_REGISTER_HOOK(flags, "kernel32.dll", OpenProcess, mitigations, logs);
+    CONDITIONAL_REGISTER_HOOK(flags, "kernel32.dll", CreateRemoteThread, mitigations, logs);
+    CONDITIONAL_REGISTER_HOOK(flags, "kernel32.dll", CreateRemoteThreadEx, mitigations, logs);
+    CONDITIONAL_REGISTER_HOOK(flags, "kernel32.dll", WriteProcessMemory, mitigations, logs);
+    CONDITIONAL_REGISTER_HOOK(flags, "kernel32.dll", ReadProcessMemory, mitigations, logs);
+    CONDITIONAL_REGISTER_AW_HOOK(flags, "kernel32.dll", CreateProcess, mitigations, logs);
+    CONDITIONAL_REGISTER_AW_HOOK(flags, "kernel32.dll", ReadConsole, mitigations, logs);
 }
 
 BOOL CloseShare() {
@@ -105,8 +68,9 @@ BOOL LoadConfig(LunaAPI::LunaStart config) {
     WRITELINE_DEBUG("Hello, my name is " << config.id << "!");
 
     // Initialise hooks
-    InstallHooks(config.hooks);
-    SetMitigations(config.mitigations);
+    SetDefaultMitigations(config.mitigations);
+    SetDefaultLogs(config.logs);
+    InstallInitialHooks(config.hooks, config.mitigations, config.logs);
     WRITELINE_DEBUG("Installed hooks!");
 
     CloseShare();

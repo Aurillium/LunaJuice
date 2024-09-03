@@ -1,22 +1,17 @@
 #include "pch.h"
 #include <iostream>
+#include <random>
 
 #include "Config.h"
+#include "random.h"
 #include "output.h"
 
 using namespace LunaAPI;
 
-void RandomString(char* buffer, const char* options, size_t length) {
-    size_t numOptions = strlen(options);
-    for (size_t i = 0; i < length; i++) {
-        buffer[i] = options[rand() % numOptions];
-    }
-}
-
 LunaStart::LunaStart() {
     RandomString(id, LUNA_ID_CHARACTERS, LUNA_MAX_ID_LENGTH);
     hooks = DEFAULT_HOOKS;
-    mitigations = NoMitigations;
+    mitigations = Mitigate_None;
 }
 
 LunaStart::LunaStart(LPCSTR implantID) {
@@ -31,7 +26,7 @@ LunaStart::LunaStart(LPCSTR implantID) {
     }
     
     hooks = DEFAULT_HOOKS;
-    mitigations = NoMitigations;
+    mitigations = Mitigate_None;
 }
 
 BOOL LunaStart::SetID(LPCSTR implantID) {

@@ -234,7 +234,7 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
     }
     else {
         // Custom hooks specified, start with none and build
-        config.hooks = LunaAPI::NoHooks;
+        config.hooks = LunaAPI::Hook_None;
 
         while (true) {
             CHAR current = arguments->hooks[i];
@@ -255,16 +255,16 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
                     if (NoCapCmp("DEFAULT", hookName)) {
                         config.hooks = config.hooks | LunaAPI::DEFAULT_HOOKS;
                     }
-                    else ADD_FLAG_CMP(NtReadFile, hookName, config.hooks)
-                    else ADD_FLAG_CMP(NtWriteFile, hookName, config.hooks)
-                    else ADD_FLAG_CMP(ReadConsole, hookName, config.hooks)
-                    else ADD_FLAG_CMP(RtlAdjustPrivilege, hookName, config.hooks)
-                    else ADD_FLAG_CMP(OpenProcess, hookName, config.hooks)
-                    else ADD_FLAG_CMP(CreateRemoteThread, hookName, config.hooks)
-                    else ADD_FLAG_CMP(WriteProcessMemory, hookName, config.hooks)
-                    else ADD_FLAG_CMP(ReadProcessMemory, hookName, config.hooks)
-                    else ADD_FLAG_CMP(CreateProcess, hookName, config.hooks)
-                    else ADD_FLAG_CMP(NtCreateUserProcess, hookName, config.hooks)
+                    else ADD_HOOK_CMP(NtReadFile, hookName, config.hooks)
+                    else ADD_HOOK_CMP(NtWriteFile, hookName, config.hooks)
+                    else ADD_HOOK_CMP(ReadConsole, hookName, config.hooks)
+                    else ADD_HOOK_CMP(RtlAdjustPrivilege, hookName, config.hooks)
+                    else ADD_HOOK_CMP(OpenProcess, hookName, config.hooks)
+                    else ADD_HOOK_CMP(CreateRemoteThread, hookName, config.hooks)
+                    else ADD_HOOK_CMP(WriteProcessMemory, hookName, config.hooks)
+                    else ADD_HOOK_CMP(ReadProcessMemory, hookName, config.hooks)
+                    else ADD_HOOK_CMP(CreateProcess, hookName, config.hooks)
+                    else ADD_HOOK_CMP(NtCreateUserProcess, hookName, config.hooks)
                     else {
                         DISP_WARN("Could not find hook '" << hookName << "'");
                         }
@@ -317,9 +317,9 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
                     LPCSTR mitigationName = &arguments->mitigations[startIndex];
 
                     // Compare and add mitigations
-                    ADD_FLAG_CMP(BlockEsc, mitigationName, config.mitigations)
-                    else ADD_FLAG_CMP(BlanketFakeSuccess, mitigationName, config.mitigations)
-                    else ADD_FLAG_CMP(BlanketNoPerms, mitigationName, config.mitigations)
+                    ADD_MITIGATE_CMP(BlockEsc, mitigationName, config.mitigations)
+                    else ADD_MITIGATE_CMP(BlanketFakeSuccess, mitigationName, config.mitigations)
+                    else ADD_MITIGATE_CMP(BlanketNoPerms, mitigationName, config.mitigations)
                     else {
                 DISP_WARN("Could not find mitigation '" << mitigationName << "'");
                 }
@@ -434,9 +434,6 @@ int main(int argc, char* argv[])
 {
     int ret = 0;
 
-    // Seed random with time for generating IDs
-    srand(time(NULL));
-
     // Get the handle to the standard output
     // We're going to try enable nice ANSI formatting
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -456,6 +453,9 @@ int main(int argc, char* argv[])
     // Process arguments
     LUNA_ARGUMENTS arguments = GetArguments(argc, argv);
     verboseEnabled = arguments.verbose;
+
+    // Initialise LunaJuice API
+    LunaAPI::InitialiseLuna(verboseEnabled);
 
     if (arguments.help) {
         DisplayUsage();
