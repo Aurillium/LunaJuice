@@ -9,5 +9,3 @@ char* ConvertUnicodeStringToAnsi(const UNICODE_STRING& unicodeString);
 DWORD GetParentProcessId(DWORD pid);
 
 LPSTR OptimalSprintf(LPCSTR fmt, ...);
-
-char FlagIndex(LunaAPI::HookFlags flag);

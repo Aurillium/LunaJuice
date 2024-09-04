@@ -99,12 +99,3 @@ LPSTR OptimalSprintf(LPCSTR fmt, ...) {
 
     return buffer;
 }
-
-char FlagIndex(LunaAPI::HookFlags flag) {
-    char index = 0;
-    size_t value = flag;
-    while (!(value & 1) || index == sizeof(LunaAPI::HookFlags) * 8) {
-        value >>= 1;
-    }
-    return index;
-}

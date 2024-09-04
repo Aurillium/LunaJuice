@@ -1,4 +1,5 @@
-#include "pch.h"
+#include "pch.h" 
+#include <any>
 #include <list>
 #include <map>
 #include <Windows.h>
@@ -10,94 +11,178 @@
 #include <polyhook2/IHook.hpp>
 #include <polyhook2/Detour/NatDetour.hpp>
 
+// Store hook instances
+std::vector<LunaHook<std::any>*> HOOK_STORAGE = std::vector<LunaHook<std::any>*>();
+LunaAPI::HookRegistry REGISTRY = LunaAPI::HookRegistry();
+// Register: add hook, return ID, send back to client, client records in own registry to address with later
+
 // Create a global map for hooks
-std::map<LPCSTR, LunaHook*> GLOBAL_HOOKS = std::map<LPCSTR, LunaHook*>();
+std::map<LPCSTR, void*> HOOK_LOCATIONS = std::map<LPCSTR, void*>();
 LunaAPI::MitigationFlags DEFAULT_MITIGATIONS = LunaAPI::Mitigate_None;
 LunaAPI::LogFlags DEFAULT_LOGS = LunaAPI::Log_All;
 
-// We can modify hooks by their bit in the enum, faster than resolving a map
-std::list<LunaHook*>* FAST_REF[sizeof(LunaAPI::HookFlags) * 8];
 
-PLH::NatDetour* InstallPolyHook(IN LPCSTR moduleName, IN LPCSTR functionName, IN void* hookFunction, OUT void** originalFunction) {
+void* GetFunctionAddress(IN LPCSTR moduleName, IN LPCSTR functionName) {
     HMODULE hModule = GetModuleHandleA(moduleName);
     if (hModule == NULL) {
-        WRITE_DEBUG("Failed to get module handle, failed to hook ");
-        WRITELINE_DEBUG(functionName);
+        WRITELINE_DEBUG("Failed to get module handle to " << moduleName << ".");
         return NULL;
     }
 
     FARPROC originalAddress = GetProcAddress(hModule, functionName);
     if (originalAddress == NULL) {
-        WRITE_DEBUG("Could not find target function, failed to hook ");
-        WRITELINE_DEBUG(functionName);
+        WRITELINE_DEBUG("Failed to find function " << functionName << " in " << moduleName << ".");
         return NULL;
     }
 
-    PLH::NatDetour* detour = new PLH::NatDetour((uint64_t)originalAddress, (uint64_t)hookFunction, (uint64_t*)originalFunction);
-    return detour;
+    return originalAddress;
 }
 
-LunaHook::LunaHook(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, void** trampolineAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log) {
-    hook = InstallPolyHook(moduleName, functionName, hookAddress, trampolineAddress);
+// Mitigations
+template<typename Ret> BOOL Mitigate(LunaAPI::MitigationFlags flags, Ret* ret) {
+    if (flags & LunaAPI::Mitigate_BlanketNoPerms) {
+        SetLastError(5);
+    }
+    return FALSE;
+}
+// Void pointers, hopefully works as a fallback for pointers but probably not
+template<> BOOL Mitigate<void*>(LunaAPI::MitigationFlags flags, void** ret) {
+    if (flags & LunaAPI::Mitigate_BlanketFakeSuccess) {
+        *ret = NULL;
+        return TRUE;
+    }
+    if (flags & LunaAPI::Mitigate_BlanketNoPerms) {
+        SetLastError(5); // Permission denied
+        *ret = NULL;
+        return TRUE;
+    }
+    return FALSE;
+}
+template<> BOOL Mitigate<BOOL>(LunaAPI::MitigationFlags flags, BOOL *ret) {
+    if (flags & LunaAPI::Mitigate_BlanketFakeSuccess) {
+        *ret = TRUE;
+        return TRUE;
+    }
+    if (flags & LunaAPI::Mitigate_BlanketNoPerms) {
+        SetLastError(5); // Permission denied
+        *ret = FALSE;
+        return TRUE;
+    }
+    return FALSE;
+}
+template<> BOOL Mitigate<NTSTATUS>(LunaAPI::MitigationFlags flags, NTSTATUS *ret) {
+    if (flags & LunaAPI::Mitigate_BlanketFakeSuccess) {
+        *ret = 0;
+        return TRUE;
+    }
+    if (flags & LunaAPI::Mitigate_BlanketNoPerms) {
+        SetLastError(5); // Permission denied
+        // Return STATUS_PRIVILEGE_NOT_HELD (not a defined header but found at https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/596a1078-e883-4972-9bbc-49e60bebca55)
+        *ret = 0xC0000061;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+// Run callbacks
+template<typename Ret, typename... Args> Ret LunaHook<Ret, Args...>::Callbacks(Args... args) {
+    Ret mitigationReturn;
+    // If mitigations returned a value, return it without running the hook.
+    if (Mitigate(this->mitigations, &mitigationReturn)) {
+        return mitigationReturn;
+    }
+    
+    // Call the hook
+    return this->hookAddr(args...);
+}
+
+template<typename Ret, typename... Args> LunaHook<Ret, Args...>::LunaHook(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LPCSTR sig) {
+    registerSuccess = FALSE;
+    signature = sig;
+
+    void* originalAddress = GetFunctionAddress(moduleName, functionName);
+    if (originalAddress == NULL) {
+        WRITELINE_DEBUG("Could not find " << moduleName << "!" << functionName << ", will not be able to hook.");
+        return;
+    }
+    hook = new PLH::NatDetour((uint64_t)originalAddress, (uint64_t)hookAddress, &(uint64_t)this->trampoline);
     if (hook == NULL) {
-        WRITELINE_DEBUG("Could not create LunaHook for " << functionName << " of " << moduleName << ".");
+        WRITELINE_DEBUG("Could not create LunaHook for " << moduleName << "!" << functionName << ".");
+        return;
     }
     mitigations = mitigate;
     logEvents = log;
 
-    // Try add this function to global hooks
-    size_t modLength = strlen(moduleName);
-    size_t funcLength = strlen(functionName);
-    size_t bufferSize = modLength + funcLength + 2 + 10;
-    LPSTR key = (LPSTR)calloc(bufferSize, sizeof(CHAR));
-    if (key == NULL) {
-        WRITELINE_DEBUG("Could not allocate memory for key in hooks hashmap.");
-        return;
-    }
-    memcpy_s(key, bufferSize * sizeof(CHAR), moduleName, modLength * sizeof(CHAR));
-    key[modLength] = '!';
-    memcpy_s(key + (modLength + 1) * sizeof(CHAR), bufferSize * sizeof(CHAR), functionName, funcLength * sizeof(CHAR));
-    // Add to global hooks map
-    GLOBAL_HOOKS[key] = this;
-
     hook->hook();
 
     registerSuccess = TRUE;
-    WRITELINE_DEBUG("Successfully hooked '" << key << "'!");
+    WRITELINE_DEBUG("Successfully hooked '" << functionName << " of " << moduleName << "'!");
 }
-LunaHook::~LunaHook() {
+template<typename Ret, typename... Args> LunaHook<Ret, Args...>::~LunaHook() {
     // Clean up
     delete hook;
 }
-BOOL LunaHook::GetStatus() {
+template<typename Ret, typename... Args> BOOL LunaHook<Ret, Args...>::GetStatus() {
     return hook->isHooked();
 }
-BOOL LunaHook::Enable() {
+template<typename Ret, typename... Args> BOOL LunaHook<Ret, Args...>::Enable() {
     return hook->hook();
 }
-BOOL LunaHook::Disable() {
+template<typename Ret, typename... Args> BOOL LunaHook<Ret, Args...>::Disable() {
     return hook->unHook();
 }
 
-LunaHook* GetGlobalHook(LPCSTR key) {
-    return GLOBAL_HOOKS[key];
+template<typename Ret, typename... Args> LunaHook<Ret, Args...>* GetGlobalHook(LPCSTR key) {
+    return HOOK_STORAGE[REGISTRY[key]];
 }
-BOOL LunaHook::Register(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, void** trampolineAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LunaAPI::HookFlags id) {
-    // Try create and register a hook
-    LunaHook* hook = new LunaHook(moduleName, functionName, hookAddress, trampolineAddress, mitigate, log);
-    if (!hook->registerSuccess) {
-        // Clean up and exit on fail
-        delete hook;
-        return FALSE;
+template<typename Ret, typename... Args> LunaHook<Ret, Args...>* GetGlobalHook(LunaAPI::HookID key) {
+    return HOOK_STORAGE[key];
+}
+
+template<typename Ret, typename... Args> LunaAPI::HookID LunaHook<Ret, Args...>::Register(LPCSTR identifier, void* hookAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LunaHook* hook) {
+    size_t length = strlen(identifier) + sizeof(CHAR);
+    LPSTR target = (LPSTR)malloc(length);
+    if (target == NULL) {
+        WRITELINE_DEBUG("Could not allocate memory to store target function name.");
+        return NULL;
     }
+    memcpy_s(target, length, identifier, length);
+    DWORD i = 0;
+    while (target[i] == 0) {
+        if (target[i] == '!') {
+            // Terminate module name here
+            target[i] = 0;
+            i++; // This becomes the beginning of the function name
+            break;
+        }
+        i++;
+    }
+    if (i == 0) {
+        WRITELINE_DEBUG("Could not find '!' in key.");
+        free(target);
+        return NULL;
+    }
+    LPSTR moduleName = target;
+    LPSTR functionName = &target[i]; // Get from after the '!'
     
-    char index = FlagIndex(id);
-    if (FAST_REF[index] == NULL) {
-        FAST_REF[index] = new std::list<LunaHook*>();
-            
+    LunaHook newHook = LunaHook(moduleName, functionName, hookAddress, mitigate, log);
+    free(target); // module and function names have been used now
+    if (!newHook->registerSuccess) {
+        // Clean up and exit on fail
+        delete newHook;
+        // This should be a maximum int, as HookID is unsigned
+        return -1;
     }
-    FAST_REF[index]->push_back(hook);
-    return TRUE;
+    if (hook != NULL) {
+        *hook = newHook;
+    }
+    LunaAPI::HookID id = HOOK_STORAGE.size();
+    HOOK_STORAGE.push_back(newHook);
+
+    // Add to registry
+    REGISTRY[identifier] = id;
+
+    return id;
 }
 
 void SetDefaultMitigations(LunaAPI::MitigationFlags mitigations) {
@@ -111,4 +196,56 @@ LunaAPI::MitigationFlags GetDefaultMitigations() {
 }
 LunaAPI::LogFlags GetDefaultLogs() {
     return DEFAULT_LOGS;
+}
+
+void AddHookedFunction(LPCSTR key, void* location) {
+    HOOK_LOCATIONS[key] = location;
+}
+
+BOOL HookInstalled(LPCSTR key) {
+    return REGISTRY.find(key) != REGISTRY.end();
+}
+// Gets the location of the real function, whether hooked or not
+template<typename Func> Func GetRealFunction(LPCSTR key) {
+    // If the key is not in the registry
+    if (!HookInstalled(key)) {
+        size_t length = strlen(key) + sizeof(CHAR);
+        LPSTR target = (LPSTR)malloc(length);
+        if (target == NULL) {
+            WRITELINE_DEBUG("Could not allocate memory to store target function name.");
+            return NULL;
+        }
+        memcpy_s(target, length, key, length);
+        DWORD i = 0;
+        while (target[i] == 0) {
+            if (target[i] == '!') {
+                // Terminate module name here
+                target[i] = 0;
+                i++; // This becomes the beginning of the function name
+                break;
+            }
+            i++;
+        }
+        if (i == 0) {
+            WRITELINE_DEBUG("Could not find '!' in key.");
+            free(target);
+            return NULL;
+        }
+        LPSTR moduleName = target;
+        LPSTR functionName = &target[i]; // Get from after the '!'
+        void* address = GetFunctionAddress(moduleName, functionName);
+        free(target);
+        return (Func)address;
+    }
+    else {
+        // Get the trampoline location from registry
+        LunaHook* hook = HOOK_STORAGE[REGISTRY[key]];
+        return (Func)hook->trampoline;
+    }
+}
+template<typename Func> Func GetHookFunction(LPCSTR key) {
+    if (HOOK_LOCATIONS.find(key) == HOOK_LOCATIONS.end()) {
+        return NULL;
+    }
+    return (Func)HOOK_LOCATIONS[key];
 }

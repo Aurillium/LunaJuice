@@ -16,6 +16,7 @@ LunaImplant::LunaImplant(LPCSTR implantID) {
     memcpy_s(id, LUNA_MAX_ID_LENGTH, implantID, idLength);
     
     // Set this up on connect
+    connected = FALSE;
     hPipeRPC = NULL;
 }
 

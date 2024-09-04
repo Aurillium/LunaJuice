@@ -234,8 +234,9 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
     }
     else {
         // Custom hooks specified, start with none and build
-        config.hooks = LunaAPI::Hook_None;
-
+        
+        // Add these after loading
+        /*
         while (true) {
             CHAR current = arguments->hooks[i];
 
@@ -288,6 +289,7 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
 
             i++;
         }
+        */
     }
 
     // Add mitigations

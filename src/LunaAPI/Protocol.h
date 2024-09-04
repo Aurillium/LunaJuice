@@ -4,23 +4,28 @@ namespace LunaAPI {
 
 	typedef enum _OpCode {
 		// 1 - 15 reserved for connection/encryption
-		Op_SetDefaultMitigations	= 0x00000010,
-		Op_SetDefaultLogging		= 0x00000011,
-		Op_SetFunctionConfig		= 0x00000012,
-		Op_SetFunctionState			= 0x00000013,
-		Op_SetSecuritySettings		= 0x00000014,
+		Op_RegisterHook				= 0x0010,
+		Op_SetDefaultMitigations	= 0x0011,
+		Op_SetDefaultLogging		= 0x0012,
+		Op_SetFunctionConfig		= 0x0013,
+		Op_AddFunctionConfig		= 0x0014,
+		Op_DelFunctionConfig		= 0x0015,
+		Op_SetFunctionState			= 0x0016,
+		Op_SetSecuritySettings		= 0x0017,
 
-		Op_GetDefaultPolicy			= 0x00000020,
-		Op_GetFunctionInfo			= 0x00000021,
-		Op_GetSecuritySettings		= 0x00000022
+		Op_GetDefaultPolicy			= 0x0020,
+		Op_GetFunctionInfo			= 0x0021,
+		Op_GetSecuritySettings		= 0x0022
 	} OpCode;
 
 	typedef enum _ResponseCode {
-		Resp_Success		= 0xffff0000,
-		Resp_Error			= 0xffff8000,
-		Resp_InvalidRequest	= 0xffff8001,
-		Resp_OutOfMemory	= 0xffff8002,
-		Resp_InvalidCommand	= 0xffff8003
+		Resp_Success		= 0x8000,
+		Resp_Error			= 0xf000,
+		Resp_InvalidRequest	= 0xf001,
+		Resp_OutOfMemory	= 0xf002,
+		Resp_InvalidCommand	= 0xf003,
+		Resp_BadParameter	= 0xf004,
+		Resp_UnknownError	= 0xf005
 	} ResponseCode;
 
 	typedef union _CommCode {

@@ -101,7 +101,10 @@ BOOL WaitForCommand(HANDLE hPipe) {
     LunaAPI::OpCode opcode = header.code.opcode;
     bool foundCommand = true;
     bool ret = false;
-    if (opcode == LunaAPI::Op_SetDefaultMitigations) {
+    if (opcode == LunaAPI::Op_RegisterHook) {
+        ret = Handle_RegisterHook(hPipe, buffer, header.length);
+    }
+    else if (opcode == LunaAPI::Op_SetDefaultMitigations) {
         ret = Handle_SetDefaultMitigations(hPipe, buffer, header.length);
     }
     else if (opcode == LunaAPI::Op_SetDefaultLogging) {
@@ -109,6 +112,12 @@ BOOL WaitForCommand(HANDLE hPipe) {
     }
     else if (opcode == LunaAPI::Op_SetFunctionConfig) {
         ret = Handle_SetFunctionConfig(hPipe, buffer, header.length);
+    }
+    else if (opcode == LunaAPI::Op_AddFunctionConfig) {
+        ret = Handle_AddFunctionConfig(hPipe, buffer, header.length);
+    }
+    else if (opcode == LunaAPI::Op_DelFunctionConfig) {
+        ret = Handle_DelFunctionConfig(hPipe, buffer, header.length);
     }
     else if (opcode == LunaAPI::Op_SetFunctionState) {
         ret = Handle_SetFunctionState(hPipe, buffer, header.length);

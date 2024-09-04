@@ -299,9 +299,9 @@ void DisplayUsage() {
 		"Controls:                        " << std::endl <<
 		"/c, /rpc                         Connect to RPC. Currently requires implant name" << std::endl <<
 		"/l, /load, /hook                 A list of functions to hook. 'default' can be" << std::endl <<
-		"/hooks=function:dll:version,...  specified to keep the default functions and add" << std::endl <<
+		"/hooks=dll!function,...          specified to keep the default functions and add" << std::endl <<
 		"                                 more. The DLL name containing the function must" << std::endl <<
-		"                                 be provided. The version (2-4) is 2 by default." << std::endl <<
+		"                                 be provided." << std::endl <<
 		"                                 " << std::endl <<
 		"Logging:                         " << std::endl <<
 		"/e, /events:+evid,-evid...       A list of logging event IDs and/or names to" << std::endl <<

@@ -22,22 +22,8 @@
 static HANDLE hMapFile;
 static LPVOID lpMemFile;
 
-EXTERN_HOOK(NtReadFile);
-EXTERN_HOOK(NtWriteFile);
-EXTERN_HOOK(ReadConsoleA);
-EXTERN_HOOK(ReadConsoleW);
-EXTERN_HOOK(RtlAdjustPrivilege);
-EXTERN_HOOK(OpenProcess);
-EXTERN_HOOK(CreateRemoteThread);
-EXTERN_HOOK(CreateRemoteThreadEx);
-EXTERN_HOOK(WriteProcessMemory);
-EXTERN_HOOK(ReadProcessMemory);
-EXTERN_HOOK(CreateProcessW);
-EXTERN_HOOK(CreateProcessA);
-EXTERN_HOOK(NtCreateUserProcess);
-EXTERN_HOOK(CoCreateInstance);
-
 // Install the hooks
+/*
 void InstallInitialHooks(LunaAPI::HookFlags flags, LunaAPI::MitigationFlags mitigations, LunaAPI::LogFlags logs) {
     CONDITIONAL_REGISTER_HOOK(flags, "ole32.dll", CoCreateInstance, mitigations, logs);
     CONDITIONAL_REGISTER_HOOK(flags, "ntdll.dll", NtReadFile, mitigations, logs);
@@ -52,6 +38,7 @@ void InstallInitialHooks(LunaAPI::HookFlags flags, LunaAPI::MitigationFlags miti
     CONDITIONAL_REGISTER_AW_HOOK(flags, "kernel32.dll", CreateProcess, mitigations, logs);
     CONDITIONAL_REGISTER_AW_HOOK(flags, "kernel32.dll", ReadConsole, mitigations, logs);
 }
+*/
 
 BOOL CloseShare() {
     if (hMapFile != NULL) {
@@ -70,7 +57,7 @@ BOOL LoadConfig(LunaAPI::LunaStart config) {
     // Initialise hooks
     SetDefaultMitigations(config.mitigations);
     SetDefaultLogs(config.logs);
-    InstallInitialHooks(config.hooks, config.mitigations, config.logs);
+    //InstallInitialHooks(config.hooks, config.mitigations, config.logs);
     WRITELINE_DEBUG("Installed hooks!");
 
     CloseShare();
@@ -79,7 +66,7 @@ BOOL LoadConfig(LunaAPI::LunaStart config) {
     HANDLE hThread = CreateThread(
         NULL,                               // Default security attributes
         0,                                  // Default stack size
-        (LPTHREAD_START_ROUTINE)BeginPipe,  // Thread function
+        (LPTHREAD_START_ROUTINE)BeginServer,// Thread function
         &config.id,                         // Thread function arguments
         0,                                  // Default creation flags
         NULL);                              // No thread identifier needed

@@ -13,9 +13,12 @@
 	return SendError(hPipe, LunaAPI::Resp_InvalidRequest); \
 }
 
+BOOL Handle_RegisterHook(HANDLE hPipe, LPVOID buffer, DWORD length);
 BOOL Handle_SetDefaultMitigations(HANDLE hPipe, LPVOID buffer, DWORD length);
 BOOL Handle_SetDefaultLogging(HANDLE hPipe, LPVOID buffer, DWORD length);
 BOOL Handle_SetFunctionConfig(HANDLE hPipe, LPVOID buffer, DWORD length);
+BOOL Handle_AddFunctionConfig(HANDLE hPipe, LPVOID buffer, DWORD length);
+BOOL Handle_DelFunctionConfig(HANDLE hPipe, LPVOID buffer, DWORD length);
 BOOL Handle_SetFunctionState(HANDLE hPipe, LPVOID buffer, DWORD length);
 BOOL Handle_SetSecuritySettings(HANDLE hPipe, LPVOID buffer, DWORD length);
 

@@ -10,8 +10,8 @@ using namespace LunaAPI;
 
 LunaStart::LunaStart() {
     RandomString(id, LUNA_ID_CHARACTERS, LUNA_MAX_ID_LENGTH);
-    hooks = DEFAULT_HOOKS;
-    mitigations = Mitigate_None;
+    logs = DEFAULT_LOGS;
+    mitigations = DEFAULT_MITIGATIONS;
 }
 
 LunaStart::LunaStart(LPCSTR implantID) {
@@ -25,8 +25,8 @@ LunaStart::LunaStart(LPCSTR implantID) {
         memcpy_s(id, LUNA_MAX_ID_LENGTH, implantID, idLength);
     }
     
-    hooks = DEFAULT_HOOKS;
-    mitigations = Mitigate_None;
+    logs = DEFAULT_LOGS;
+    mitigations = DEFAULT_MITIGATIONS;
 }
 
 BOOL LunaStart::SetID(LPCSTR implantID) {
