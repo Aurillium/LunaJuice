@@ -15,8 +15,10 @@ BOOL Handle_RegisterHook(HANDLE hPipe, LPVOID buffer, DWORD length) {
 		return SendError(hPipe, LunaAPI::Resp_OutOfMemory);
 	}
 	memcpy_s(target, length, buffer, length);
+	// Null terminate
+	target[length] = 0;
 	DWORD i = 0;
-	while (target[i] == 0) {
+	while (target[i] != 0) {
 		if (target[i] == '!') {
 			break;
 		}
@@ -27,10 +29,15 @@ BOOL Handle_RegisterHook(HANDLE hPipe, LPVOID buffer, DWORD length) {
 		free(target);
 		return SendError(hPipe, LunaAPI::Resp_BadParameter);
 	}
-	LunaAPI::HookID id = LunaHook<std::any(*)(std::any)>::Register(target, GetHookFunction((LPCSTR)target), GetDefaultMitigations(), GetDefaultLogs());
+	void* hookAddress = GetHookFunction((LPCSTR)target);
+	if (hookAddress == NULL) {
+		free(target);
+		return SendError(hPipe, LunaAPI::Resp_UnsupportedHook);
+	}
+	LunaAPI::HookID id = LunaHook<std::any(*)(std::any)>::Register(target, hookAddress, GetDefaultMitigations(), GetDefaultLogs());
 	free(target);
 
-	if (id == 0) {
+	if (id == MAXDWORD32) {
 		return SendError(hPipe, LunaAPI::Resp_UnknownError);
 	}
 

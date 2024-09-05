@@ -15,7 +15,10 @@ LunaImplant::LunaImplant(LPCSTR implantID) {
     if (idLength > LUNA_MAX_ID_LENGTH) {
         DISP_WARN("Implant ID cannot be above " << LUNA_MAX_ID_LENGTH << "Characters. '" << implantID << "' will be truncated");
     }
+    // Error here?
     memcpy_s(id, LUNA_MAX_ID_LENGTH, implantID, idLength);
+    // Null terminate
+    id[LUNA_MAX_ID_LENGTH] = 0;
     
     // Set this up on connect
     connected = FALSE;
@@ -25,9 +28,11 @@ LunaImplant::LunaImplant(LPCSTR implantID) {
 BOOL LunaImplant::Connect() {
     // The stub is 10 chars long (incl null byte), then ID is 24 (excl null byte)
     char pipeName[LUNA_MAX_ID_LENGTH + 10] = "\\\\.\\pipe\\";
-    for (size_t i = 0; i < LUNA_MAX_ID_LENGTH + 1; i++) {
-        pipeName[i + 9] = id[i];
+    for (size_t i = 0; i < LUNA_MAX_ID_LENGTH; i++) {
+        pipeName[i + 9] = this->id[i];
     }
+    // Null terminate
+    pipeName[LUNA_MAX_ID_LENGTH + 9] = 0;
 
     // Attempt to connect to the named pipe
     hPipeRPC = CreateFileA(
@@ -40,6 +45,7 @@ BOOL LunaImplant::Connect() {
         0,                     // Default attributes
         NULL);                 // No template file
 
+    DISP_VERBOSE("Connecting to '" << pipeName << "'...");
     if (hPipeRPC == INVALID_HANDLE_VALUE) {
         DISP_WINERROR("Could not connect to LunaJuice pipe");
         return FALSE;
@@ -54,10 +60,7 @@ BOOL LunaImplant::Connect() {
         DISP_ERROR("Could not complete handshake with LunaJuice");
     }
 
-    // Close the pipe
-    CloseHandle(hPipeRPC);
-
-    return TRUE;
+    return connected;
 }
 
 void LunaImplant::Disconnect() {
@@ -65,6 +68,7 @@ void LunaImplant::Disconnect() {
     // the connection is about to close anyway
     SendPacket(this->hPipeRPC, Op_Disconnect, NULL, 0);
     connected = FALSE;
+    CloseHandle(this->hPipeRPC);
 }
 
 BOOL LunaImplant::Handshake() {
@@ -94,6 +98,7 @@ BOOL LunaImplant::Handshake() {
         return TRUE;
     }
     CloseHandle(hPipeRPC);
+    DISP_ERROR("Handshake with RPC failed");
     return FALSE;
 }
 

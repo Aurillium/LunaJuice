@@ -3,7 +3,7 @@
 #include "Config.h"
 
 // Should be run at the start of the program to ensure hooks can be located when needed
-#define PREPARE_HOOK(dll, name) (AddHookedFunction(dll##"!"##name, (void*)Hooked_##name))
+#define PREPARE_HOOK(dll, name) (AddHookedFunction(dll "!" #name, (void*)Hooked_##name))
 
 #define GET_REAL(dll, name) static name##_t Real_##name = (name##_t)GetRealFunction(dll "!" #name)
 #define GET_LUNA(dll, name) static LunaHook<name##_t>* LUNA = LunaHook<name##_t>::GetGlobalHook(dll "!" #name)
@@ -50,26 +50,23 @@ public:
     static LunaHook<Ret(*)(Args...)>* GetGlobalHook(LunaAPI::HookID key);
 };
 
-//template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>* GetGlobalHook(LPCSTR key);
-//template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>* GetGlobalHook(LunaAPI::HookID key);
-
 void SetDefaultMitigations(LunaAPI::MitigationFlags mitigations);
 void SetDefaultLogs(LunaAPI::LogFlags logEvents);
 LunaAPI::MitigationFlags GetDefaultMitigations();
 LunaAPI::LogFlags GetDefaultLogs();
 
-void AddHookedFunction(LPCSTR key, void* location);
+void AddHookedFunction(std::string key, void* location);
 BOOL HookInstalled(LPCSTR key);
 void* GetRealFunction(LPCSTR key);
-void* GetHookFunction(LPCSTR key);
+void* GetHookFunction(std::string key);
 void* GetFunctionAddress(IN LPCSTR moduleName, IN LPCSTR functionName);
 
-// Function definitions
+// Template definitions
 
 #include <any>
 extern std::vector<LunaHook<std::any(*)(std::any)>*> HOOK_STORAGE;
 extern LunaAPI::HookRegistry REGISTRY;
-extern std::map<LPCSTR, void*> HOOK_LOCATIONS;
+extern std::map<std::string, void*> HOOK_LOCATIONS;
 extern LunaAPI::MitigationFlags DEFAULT_MITIGATIONS;
 extern LunaAPI::LogFlags DEFAULT_LOGS;
 
@@ -105,7 +102,7 @@ template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>::LunaHook(LPC
     hook->hook();
 
     registerSuccess = TRUE;
-    WRITELINE_DEBUG("Successfully hooked '" << functionName << " of " << moduleName << "'!");
+    WRITELINE_DEBUG("Successfully hooked '" << functionName << "' of '" << moduleName << "'!");
 }
 template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>::~LunaHook() {
     // Clean up
@@ -129,15 +126,18 @@ template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>* LunaHook<Ret
 }
 
 template<typename Ret, typename... Args> LunaAPI::HookID LunaHook<Ret(*)(Args...)>::Register(LPCSTR identifier, void* hookAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LunaHook** hook) {
-    size_t length = strlen(identifier) + sizeof(CHAR);
-    LPSTR target = (LPSTR)malloc(length);
+    size_t length = strlen(identifier) + 1;
+    LPSTR target = (LPSTR)calloc(length, sizeof(CHAR));
     if (target == NULL) {
         WRITELINE_DEBUG("Could not allocate memory to store target function name.");
-        return NULL;
+        return LunaAPI::MAX_HOOKID;
     }
     memcpy_s(target, length, identifier, length);
+    // Null terminate last position
+    target[length - 1] = 0;
     DWORD i = 0;
-    while (target[i] == 0) {
+    // What is this warning for?
+    while (target[i] != 0) {
         if (target[i] == '!') {
             // Terminate module name here
             target[i] = 0;
@@ -149,7 +149,7 @@ template<typename Ret, typename... Args> LunaAPI::HookID LunaHook<Ret(*)(Args...
     if (i == 0) {
         WRITELINE_DEBUG("Could not find '!' in key.");
         free(target);
-        return NULL;
+        return LunaAPI::MAX_HOOKID;
     }
     LPSTR moduleName = target;
     LPSTR functionName = &target[i]; // Get from after the '!'
@@ -160,7 +160,7 @@ template<typename Ret, typename... Args> LunaAPI::HookID LunaHook<Ret(*)(Args...
         // Clean up and exit
         delete newHook;
         // This should be a maximum int, as HookID is unsigned
-        return -1;
+        return LunaAPI::MAX_HOOKID;
     }
     if (hook != NULL) {
         *hook = newHook;

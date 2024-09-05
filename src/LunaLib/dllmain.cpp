@@ -23,22 +23,22 @@ static HANDLE hMapFile;
 static LPVOID lpMemFile;
 
 // Install the hooks
-/*
-void InstallInitialHooks(LunaAPI::HookFlags flags, LunaAPI::MitigationFlags mitigations, LunaAPI::LogFlags logs) {
-    CONDITIONAL_REGISTER_HOOK(flags, "ole32.dll", CoCreateInstance, mitigations, logs);
-    CONDITIONAL_REGISTER_HOOK(flags, "ntdll.dll", NtReadFile, mitigations, logs);
-    CONDITIONAL_REGISTER_HOOK(flags, "ntdll.dll", NtWriteFile, mitigations, logs);
-    CONDITIONAL_REGISTER_HOOK(flags, "ntdll.dll", RtlAdjustPrivilege, mitigations, logs);
-    CONDITIONAL_REGISTER_HOOK(flags, "ntdll.dll", NtCreateUserProcess, mitigations, logs);
-    CONDITIONAL_REGISTER_HOOK(flags, "kernel32.dll", OpenProcess, mitigations, logs);
-    CONDITIONAL_REGISTER_HOOK(flags, "kernel32.dll", CreateRemoteThread, mitigations, logs);
-    CONDITIONAL_REGISTER_HOOK(flags, "kernel32.dll", CreateRemoteThreadEx, mitigations, logs);
-    CONDITIONAL_REGISTER_HOOK(flags, "kernel32.dll", WriteProcessMemory, mitigations, logs);
-    CONDITIONAL_REGISTER_HOOK(flags, "kernel32.dll", ReadProcessMemory, mitigations, logs);
-    CONDITIONAL_REGISTER_AW_HOOK(flags, "kernel32.dll", CreateProcess, mitigations, logs);
-    CONDITIONAL_REGISTER_AW_HOOK(flags, "kernel32.dll", ReadConsole, mitigations, logs);
+void PrepareHooks() {
+    PREPARE_HOOK("ole32.dll", CoCreateInstance);
+    PREPARE_HOOK("ntdll.dll", NtReadFile);
+    PREPARE_HOOK("ntdll.dll", NtWriteFile);
+    PREPARE_HOOK("ntdll.dll", RtlAdjustPrivilege);
+    PREPARE_HOOK("ntdll.dll", NtCreateUserProcess);
+    PREPARE_HOOK("kernel32.dll", OpenProcess);
+    PREPARE_HOOK("kernel32.dll", CreateRemoteThread);
+    PREPARE_HOOK("kernel32.dll", CreateRemoteThreadEx);
+    PREPARE_HOOK("kernel32.dll", WriteProcessMemory);
+    PREPARE_HOOK("kernel32.dll", ReadProcessMemory);
+    PREPARE_HOOK("kernel32.dll", CreateProcessA);
+    PREPARE_HOOK("kernel32.dll", CreateProcessW);
+    PREPARE_HOOK("kernel32.dll", ReadConsoleA);
+    PREPARE_HOOK("kernel32.dll", ReadConsoleW);
 }
-*/
 
 BOOL CloseShare() {
     if (hMapFile != NULL) {
@@ -125,11 +125,12 @@ __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for
         DisableThreadLibraryCalls(hModule);
 
         WRITELINE_DEBUG("Attached to process...");
+        PrepareHooks();
+        WRITELINE_DEBUG("Prepared hooks!");
         if (!InitShare(hModule)) {
             WRITELINE_DEBUG("Could not set up shared memory.");
         }
-        WRITELINE_DEBUG("Initialised share memory...");
-
+        WRITELINE_DEBUG("Initialised share memory!");
         if (!OpenLogger()) {
             WRITELINE_DEBUG("Could not open logger.");
         }

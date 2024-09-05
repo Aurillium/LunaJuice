@@ -281,8 +281,8 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
 }
 
 // Consumes hooks
-BOOL SetupHooks(LUNA_ARGUMENTS* arguments) {
-    LunaAPI::LunaImplant implant = LunaAPI::LunaImplant(arguments->name);
+BOOL SetupHooks(CHAR name[LUNA_MAX_ID_LENGTH], LUNA_ARGUMENTS* arguments) {
+    LunaAPI::LunaImplant implant = LunaAPI::LunaImplant(name);
 
     if (!implant.Connect()) {
         DISP_ERROR("Could not connect to LunaJuice RPC");
@@ -317,7 +317,7 @@ BOOL SetupHooks(LUNA_ARGUMENTS* arguments) {
                     LPCSTR hookName = &arguments->hooks[startIndex];
 
                     if (!implant.RegisterHook(hookName)) {
-                        DISP_ERROR("Could not hook '" << hookName << "'.");
+                        UPDATE_ERROR("Could not hook '" << hookName << "'");
                     } else {
                         UPDATE_VERBOSE("Added hook for '" << hookName << "'!");
                     }
@@ -566,8 +566,9 @@ int main(int argc, char* argv[])
         DISP_LOG("Connecting via RPC to hook functions...");
         // Initialisation waits for the thread to exit, but does not consider that the RPC is created in
         // a new thread, so still wait
-        Sleep(500);
-        if (!SetupHooks(&arguments)) {
+        // Can we do this better? Maybe wait for file to be created in the init thread in implant?
+        Sleep(2000);
+        if (!SetupHooks(config.id, &arguments)) {
             DISP_ERROR("Could not set up hooks");
             ret = 1;
             goto cleanup;

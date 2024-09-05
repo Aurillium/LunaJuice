@@ -26,13 +26,14 @@ namespace LunaAPI {
 	} OpCode;
 
 	typedef enum _ResponseCode {
-		Resp_Success		= 0x8000,
-		Resp_Error			= 0xf000,
-		Resp_InvalidRequest	= 0xf001,
-		Resp_OutOfMemory	= 0xf002,
-		Resp_InvalidCommand	= 0xf003,
-		Resp_BadParameter	= 0xf004,
-		Resp_UnknownError	= 0xf005
+		Resp_Success			= 0x8000,
+		Resp_Error				= 0xf000,
+		Resp_InvalidRequest		= 0xf001,
+		Resp_OutOfMemory		= 0xf002,
+		Resp_InvalidCommand		= 0xf003,
+		Resp_BadParameter		= 0xf004,
+		Resp_UnknownError		= 0xf005,
+		Resp_UnsupportedHook	= 0xf006
 	} ResponseCode;
 
 	typedef union _CommCode {

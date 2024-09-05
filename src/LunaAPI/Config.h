@@ -1,6 +1,7 @@
 #pragma once
 #include "framework.h"
 #include <map>
+#include <string>
 #include <Windows.h>
 
 // It is highly recommended to change these values in production, or make them dynamic
@@ -13,7 +14,9 @@
 namespace LunaAPI {
     // Registry for fast addressing
     typedef unsigned int HookID;
-    typedef std::map<LPCSTR, HookID> HookRegistry;
+    const HookID MAX_HOOKID = ((HookID)~((HookID)0));
+
+    typedef std::map<std::string, HookID> HookRegistry;
     typedef enum _MitigationFlags {
         Mitigate_None = 0,
         Mitigate_BlockEsc = 1,

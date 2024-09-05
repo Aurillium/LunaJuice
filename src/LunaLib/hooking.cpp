@@ -2,6 +2,7 @@
 #include <any>
 #include <list>
 #include <map>
+#include <string>
 #include <Windows.h>
 
 #include "debug.h"
@@ -17,7 +18,7 @@ LunaAPI::HookRegistry REGISTRY = LunaAPI::HookRegistry();
 // Register: add hook, return ID, send back to client, client records in own registry to address with later
 
 // Create a global map for hook function locations
-std::map<LPCSTR, void*> HOOK_LOCATIONS = std::map<LPCSTR, void*>();
+std::map<std::string, void*> HOOK_LOCATIONS = std::map<std::string, void*>();
 LunaAPI::MitigationFlags DEFAULT_MITIGATIONS = LunaAPI::Mitigate_None;
 LunaAPI::LogFlags DEFAULT_LOGS = LunaAPI::Log_All;
 
@@ -34,6 +35,7 @@ void* GetFunctionAddress(IN LPCSTR moduleName, IN LPCSTR functionName) {
         WRITELINE_DEBUG("Failed to find function " << functionName << " in " << moduleName << ".");
         return NULL;
     }
+    WRITELINE_DEBUG(originalAddress);
 
     return originalAddress;
 }
@@ -97,7 +99,7 @@ LunaAPI::LogFlags GetDefaultLogs() {
     return DEFAULT_LOGS;
 }
 
-void AddHookedFunction(LPCSTR key, void* location) {
+void AddHookedFunction(std::string key, void* location) {
     HOOK_LOCATIONS[key] = location;
 }
 
@@ -109,7 +111,7 @@ void* GetRealFunction(LPCSTR key) {
     // If the key is not in the registry
     if (!HookInstalled(key)) {
         size_t length = strlen(key) + sizeof(CHAR);
-        LPSTR target = (LPSTR)malloc(length);
+        LPSTR target = (LPSTR)calloc(length, sizeof(CHAR));
         if (target == NULL) {
             WRITELINE_DEBUG("Could not allocate memory to store target function name.");
             return NULL;
@@ -142,8 +144,9 @@ void* GetRealFunction(LPCSTR key) {
         return hook->trampoline;
     }
 }
-void* GetHookFunction(LPCSTR key) {
+void* GetHookFunction(std::string key) {
     if (HOOK_LOCATIONS.find(key) == HOOK_LOCATIONS.end()) {
+        WRITELINE_DEBUG("Could not find '" << key << "'.");
         return NULL;
     }
     return HOOK_LOCATIONS[key];
