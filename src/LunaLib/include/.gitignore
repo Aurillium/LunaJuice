@@ -1,2 +1,3 @@
-# Ignore V8 headers and work out best way to include them later
+# Ignore V8 and Python headers and work out best way to include them later
 v8
+python

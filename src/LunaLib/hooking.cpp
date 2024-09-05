@@ -35,7 +35,6 @@ void* GetFunctionAddress(IN LPCSTR moduleName, IN LPCSTR functionName) {
         WRITELINE_DEBUG("Failed to find function " << functionName << " in " << moduleName << ".");
         return NULL;
     }
-    WRITELINE_DEBUG(originalAddress);
 
     return originalAddress;
 }

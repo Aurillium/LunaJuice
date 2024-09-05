@@ -19,8 +19,52 @@
 #include <polyhook2/IHook.hpp>
 #include <polyhook2/Detour/NatDetour.hpp>
 
+#include "include/python/Python.h"
+
 static HANDLE hMapFile;
 static LPVOID lpMemFile;
+
+typedef PyObject* (*PyObject_Call_t)(PyObject* callable, PyObject* args, PyObject* kwargs);
+NOINLINE PyObject* Hooked_PyObject_Call(PyObject* callable, PyObject* args, PyObject* kwargs) {
+    static PyObject_Call_t Real_PyObject_Call = (PyObject_Call_t)GetRealFunction("python312.dll!PyObject_Call");
+
+    PyTypeObject* type = callable->ob_type;
+    WRITELINE_DEBUG(type->tp_name);
+    WRITELINE_DEBUG(Real_PyObject_Call);
+    return PyObject_Call(callable, args, kwargs);
+}
+
+typedef PyObject* (*PyEval_EvalFrame_t)(PyFrameObject* frame);
+NOINLINE PyObject* Hooked_PyEval_EvalFrame(PyFrameObject* frame) {
+    static PyEval_EvalFrame_t Real_PyEval_EvalFrame = (PyEval_EvalFrame_t)GetRealFunction("python312.dll!PyEval_EvalFrame");
+
+    return PyEval_EvalFrame(frame);
+}
+
+void PyHook() {
+    // This works
+    Py_Initialize();
+    PyRun_SimpleString("print('Hello, world!')");
+
+    // This causes a crash
+    WRITELINE_DEBUG(GetRealFunction("python312.dll!PyObject_Call"));
+    AddHookedFunction("python312.dll!PyObject_Call", Hooked_PyEval_EvalFrame);
+    AddHookedFunction("python312.dll!PyEval_EvalFrame", Hooked_PyObject_Call);
+    LunaAPI::HookID id = LunaHook<AnyFunction>::Register("python312.dll!PyObject_Call", GetHookFunction("python312.dll!PyObject_Call"), LunaAPI::Mitigate_None, LunaAPI::Log_All);
+    if (id != LunaAPI::MAX_HOOKID) {
+        WRITELINE_DEBUG("Successfully hooked!" << id);
+    }
+    else {
+        WRITELINE_DEBUG("No success today ;-;");
+    }
+    //id = LunaHook<AnyFunction>::Register("python312.dll!PyEval_EvalFrame", GetHookFunction("python312.dll!PyEval_EvalFrame"), LunaAPI::Mitigate_None, LunaAPI::Log_All);
+    if (id != LunaAPI::MAX_HOOKID) {
+        WRITELINE_DEBUG("Successfully hooked!" << id);
+    }
+    else {
+        WRITELINE_DEBUG("No success today ;-;");
+    }
+}
 
 // Install the hooks
 void PrepareHooks() {
@@ -38,6 +82,8 @@ void PrepareHooks() {
     PREPARE_HOOK("kernel32.dll", CreateProcessW);
     PREPARE_HOOK("kernel32.dll", ReadConsoleA);
     PREPARE_HOOK("kernel32.dll", ReadConsoleW);
+
+    PyHook();
 }
 
 BOOL CloseShare() {
