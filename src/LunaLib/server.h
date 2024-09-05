@@ -10,4 +10,5 @@ typedef struct _LunaConnection {
 } LunaConnection;
 
 BOOL SendError(HANDLE hPipe, LunaAPI::ResponseCode code);
+BOOL SendData(HANDLE hPipe, LunaAPI::ResponseCode code, LPCVOID buffer, size_t length);
 BOOL BeginServer(LPVOID lpParam);

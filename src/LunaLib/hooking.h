@@ -5,7 +5,7 @@
 // Should be run at the start of the program to ensure hooks can be located when needed
 #define PREPARE_HOOK(dll, name) (AddHookedFunction(dll##"!"##name, (void*)Hooked_##name))
 
-#define GET_REAL(dll, name) static name##_t Real_##name = GetRealFunction<name##_t>(dll "!" #name)
+#define GET_REAL(dll, name) static name##_t Real_##name = (name##_t)GetRealFunction(dll "!" #name)
 #define GET_LUNA(dll, name) static LunaHook<name##_t>* LUNA = GetGlobalHook<name##_t>(dll "!" #name)
 
 // Quickly define hooks
@@ -23,18 +23,21 @@ ret calltype Hooked_##name##sig;
 LPCSTR String_##name = #ret " " #calltype " " #name #sig; \
 NOINLINE ret calltype Hooked_##name##sig
 
-template<typename Ret, typename... Args> class LunaHook {
+template<typename Ret, typename... Args> class LunaHook {};
+template<typename Ret, typename... Args> class LunaHook<Ret(*)(Args...)> {
 private:
 	PLH::NatDetour* hook;
 	BOOL status = FALSE;
 	BOOL registerSuccess = FALSE;
 
 	LPCSTR signature;
-	LunaHook(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LPCSTR signature=NULL);
 
+	LunaHook(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LPCSTR signature = NULL);
 public:
 	LunaAPI::MitigationFlags mitigations;
 	LunaAPI::LogFlags logEvents;
+	Ret(*trampoline)(Args...);
+	Ret(*hookFunction)(Args...);
 
 	Ret Callbacks(Args...);
 
@@ -42,12 +45,7 @@ public:
 	BOOL Enable();
 	BOOL Disable();
 	BOOL GetStatus();
-	static LunaAPI::HookID Register(LPCSTR identifier, void* hookAddress, LunaAPI::MitigationFlags mitigate=DEFAULT_MITIGATIONS, LunaAPI::LogFlags log=DEFAULT_LOGS, LunaHook* hook=NULL);
-};
-template<typename Ret, typename... Args> class LunaHook<Ret(*)(Args...)> {
-public:
-	Ret(*trampoline)(Args...);
-	Ret(*hookFunction)(Args...);
+	static LunaAPI::HookID Register(LPCSTR identifier, void* hookAddress, LunaAPI::MitigationFlags mitigate = DEFAULT_MITIGATIONS, LunaAPI::LogFlags log = DEFAULT_LOGS, LunaHook* hook = NULL);
 };
 
 template<typename Ret, typename... Args> LunaHook<Ret, Args...>* GetGlobalHook(LPCSTR key);
@@ -60,5 +58,5 @@ LunaAPI::LogFlags GetDefaultLogs();
 
 void AddHookedFunction(LPCSTR key, void* location);
 BOOL HookInstalled(LPCSTR key);
-template<typename Func> Func GetRealFunction(LPCSTR key);
-template<typename Func> Func GetHookFunction(LPCSTR key);
+void* GetRealFunction(LPCSTR key);
+void* GetHookFunction(LPCSTR key);

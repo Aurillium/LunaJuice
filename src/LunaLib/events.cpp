@@ -49,7 +49,7 @@ static BOOL PopulateDetailFields() {
 
 	// This should always run before hooking
 #if _DEBUG
-	static OpenProcess_t RealOpenProcess = GetRealFunction<OpenProcess_t>("kernel32.dll!OpenProcess");
+	static OpenProcess_t RealOpenProcess = (OpenProcess_t)GetRealFunction("kernel32.dll!OpenProcess");
 	if (RealOpenProcess == NULL) {
 		WRITELINE_DEBUG("OpenProcess function could not be found. This indicates a bug in LunaJuice.");
 		return FALSE;

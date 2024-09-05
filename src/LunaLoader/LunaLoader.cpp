@@ -221,81 +221,11 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
     if (arguments->name != NULL && arguments->name[0] != 0)
         config.SetID(arguments->name);
 
-    // Set up hooks
+    // Add mitigations
 
     // Loop over and OR with hook flags in config
     size_t startIndex = 0, i = 0;
     BOOL inText = FALSE;
-
-    DISP_VERBOSE("Starting to add hooks...");
-
-    if (arguments->hooks[0] == 0) {
-        UPDATE_VERBOSE("No data, using default hooks.");
-    }
-    else {
-        // Custom hooks specified, start with none and build
-        
-        // Add these after loading
-        /*
-        while (true) {
-            CHAR current = arguments->hooks[i];
-
-            // When we get to the end of a hook, add it to config
-            if (IS_WHITESPACE(current) || current == ',' || current == 0) {
-                // We've hit whitespace or a comma after being in text, time to drop
-                if (inText) {
-
-                    // This is technically constant/static because it comes directly from argv
-                    // We can modify it though
-                    ((char*)arguments->hooks)[i] = 0;
-
-                    // Get hook name to compare
-                    LPCSTR hookName = &arguments->hooks[startIndex];
-
-                    // Compare and add hooks
-                    if (NoCapCmp("DEFAULT", hookName)) {
-                        config.hooks = config.hooks | LunaAPI::DEFAULT_HOOKS;
-                    }
-                    else ADD_HOOK_CMP(NtReadFile, hookName, config.hooks)
-                    else ADD_HOOK_CMP(NtWriteFile, hookName, config.hooks)
-                    else ADD_HOOK_CMP(ReadConsole, hookName, config.hooks)
-                    else ADD_HOOK_CMP(RtlAdjustPrivilege, hookName, config.hooks)
-                    else ADD_HOOK_CMP(OpenProcess, hookName, config.hooks)
-                    else ADD_HOOK_CMP(CreateRemoteThread, hookName, config.hooks)
-                    else ADD_HOOK_CMP(WriteProcessMemory, hookName, config.hooks)
-                    else ADD_HOOK_CMP(ReadProcessMemory, hookName, config.hooks)
-                    else ADD_HOOK_CMP(CreateProcess, hookName, config.hooks)
-                    else ADD_HOOK_CMP(NtCreateUserProcess, hookName, config.hooks)
-                    else {
-                        DISP_WARN("Could not find hook '" << hookName << "'");
-                        }
-
-                        UPDATE_VERBOSE("Added " << hookName);
-                        inText = FALSE;
-                }
-
-                // Process from after whitespace/comma
-                startIndex = i + 1;
-            }
-            else {
-                // If not whitespace/comma, we're in a privilege.
-                inText = TRUE;
-            }
-
-            // We've reached the end
-            if (current == 0) {
-                break;
-            }
-
-            i++;
-        }
-        */
-    }
-
-    // Add mitigations
-
-    startIndex = 0, i = 0;
-    inText = FALSE;
 
     DISP_VERBOSE("Starting to add mitigations...");
 
@@ -334,7 +264,7 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
                 startIndex = i + 1;
             }
             else {
-                // If not whitespace/comma, we're in a privilege.
+                // If not whitespace/comma, we're in a mitigation.
                 inText = TRUE;
             }
 
@@ -347,6 +277,72 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
         }
     }
 
+    return TRUE;
+}
+
+// Consumes hooks
+BOOL SetupHooks(LUNA_ARGUMENTS* arguments) {
+    LunaAPI::LunaImplant implant = LunaAPI::LunaImplant(arguments->name);
+
+    if (!implant.Connect()) {
+        DISP_ERROR("Could not connect to LunaJuice RPC");
+        return FALSE;
+    }
+    DISP_REMOTE("Connected to LunaJuice!");
+
+    if (arguments->hooks[0] == 0) {
+        UPDATE_VERBOSE("No data, using default hooks.");
+    }
+    else {
+        DISP_VERBOSE("Starting to add hooks...");
+        size_t startIndex = 0, i = 0;
+        BOOL inText = FALSE;
+
+        // Custom hooks specified, start with none and build
+
+        // Add these after loading
+        while (true) {
+            CHAR current = arguments->hooks[i];
+
+            // When we get to the end of a hook, add it to config
+            if (IS_WHITESPACE(current) || current == ',' || current == 0) {
+                // We've hit whitespace or a comma after being in text, time to drop
+                if (inText) {
+
+                    // This is technically constant/static because it comes directly from argv
+                    // We can modify it though
+                    ((char*)arguments->hooks)[i] = 0;
+
+                    // Get hook name to compare
+                    LPCSTR hookName = &arguments->hooks[startIndex];
+
+                    if (!implant.RegisterHook(hookName)) {
+                        DISP_ERROR("Could not hook '" << hookName << "'.");
+                    } else {
+                        UPDATE_VERBOSE("Added hook for '" << hookName << "'!");
+                    }
+                    inText = FALSE;
+                }
+
+                // Process from after whitespace/comma
+                startIndex = i + 1;
+            }
+            else {
+                // If not whitespace/comma, we're in a hook.
+                inText = TRUE;
+            }
+
+            // We've reached the end
+            if (current == 0) {
+                break;
+            }
+
+            i++;
+        }
+    }
+
+    implant.Disconnect();
+    DISP_REMOTE("Disconnected from LunaJuice!");
     return TRUE;
 }
 
@@ -494,6 +490,9 @@ int main(int argc, char* argv[])
         LunaAPI::LunaImplant implant = LunaAPI::LunaImplant(arguments.name);
 
         implant.Connect();
+        DISP_REMOTE("Connected to LunaJuice!");
+        implant.Disconnect();
+        DISP_REMOTE("Disconnected from LunaJuice!");
 
         return 0;
 
@@ -559,9 +558,21 @@ int main(int argc, char* argv[])
         DISP_LOG("Initialising LunaJuice...");
         if (!LunaAPI::InitialiseLunaJuice(hProcess, (LPTHREAD_START_ROUTINE)initData.lpInit, config)) {
             DISP_ERROR("Could not initialise LunaJuice");
-            return 1;
+            ret = 1;
+            goto cleanup;
         }
         UPDATE_LOG("Initialised!");
+
+        DISP_LOG("Connecting via RPC to hook functions...");
+        // Initialisation waits for the thread to exit, but does not consider that the RPC is created in
+        // a new thread, so still wait
+        Sleep(500);
+        if (!SetupHooks(&arguments)) {
+            DISP_ERROR("Could not set up hooks");
+            ret = 1;
+            goto cleanup;
+        }
+        UPDATE_LOG("Hooked!");
 
         // We can now use the RPC either from here or elsewhere
         DISP_SUCCESS("LunaJuice is ready to go!");

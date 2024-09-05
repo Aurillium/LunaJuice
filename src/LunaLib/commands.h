@@ -5,7 +5,7 @@
 #include "server.h"
 
 #define REQUIRE_DATA(hPipe, buffer, length) if (buffer == NULL) { \
-	WRITELINE_DEBUG("Data was required for RPC call but non provided."); \
+	WRITELINE_DEBUG("Data was required for RPC call but none provided."); \
 	return SendError(hPipe, LunaAPI::Resp_InvalidRequest); \
 }
 #define REQUIRE_LENGTH(hPipe, buffer, length, required) if (length < required) { \

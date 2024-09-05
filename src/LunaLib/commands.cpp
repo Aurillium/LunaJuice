@@ -8,7 +8,6 @@
 
 BOOL Handle_RegisterHook(HANDLE hPipe, LPVOID buffer, DWORD length) {
 	REQUIRE_DATA(hPipe, buffer, length);
-	REQUIRE_LENGTH(hPipe, buffer, length, sizeof(LunaAPI::MitigationFlags));
 
 	LPSTR target = (LPSTR)malloc(length + sizeof(CHAR));
 	if (target == NULL) {
@@ -28,16 +27,14 @@ BOOL Handle_RegisterHook(HANDLE hPipe, LPVOID buffer, DWORD length) {
 		free(target);
 		return SendError(hPipe, LunaAPI::Resp_BadParameter);
 	}
-	LunaAPI::HookID id = LunaHook<std::any>::Register(target, GetHookFunction<void*>((LPCSTR)target), GetDefaultMitigations(), GetDefaultLogs());
+	LunaAPI::HookID id = LunaHook<std::any(*)(std::any)>::Register(target, GetHookFunction((LPCSTR)target), GetDefaultMitigations(), GetDefaultLogs());
 	free(target);
 
 	if (id == 0) {
 		return SendError(hPipe, LunaAPI::Resp_UnknownError);
 	}
 
-	// Send success with ID as data, create function for this
-
-	return SendError(hPipe, LunaAPI::Resp_Success);
+	return SendData(hPipe, LunaAPI::Resp_Success, &id, sizeof(id));
 }
 BOOL Handle_SetDefaultMitigations(HANDLE hPipe, LPVOID buffer, DWORD length) {
 	REQUIRE_DATA(hPipe, buffer, length);

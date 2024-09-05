@@ -610,6 +610,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="connection.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Implant.h" />
     <ClInclude Include="Loader.h" />
@@ -621,6 +622,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Config.cpp" />
+    <ClCompile Include="connection.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="Implant.cpp" />
     <ClCompile Include="Loader.cpp" />

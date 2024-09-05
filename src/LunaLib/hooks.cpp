@@ -20,7 +20,7 @@ BOOL firstConsoleRead = TRUE;
 HOOKDEF(MessageBoxA, WINAPI, BOOL, (HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType))
 {
     GET_REAL("user32.dll", MessageBoxA);
-    static NtReadFile_t Real_NtReadFile = GetRealFunction<NtReadFile_t>("ntdll.dll!NtReadFile");
+    //static NtReadFile_t Real_NtReadFile = (NtReadFile_t)GetRealFunction("ntdll.dll!NtReadFile");
 
     std::cout << "Intercepted MessageBoxA called!" << std::endl;
     std::cout << "Text: " << lpText << std::endl;
@@ -32,7 +32,7 @@ HOOKDEF(MessageBoxA, WINAPI, BOOL, (HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, 
 
 // Privilege adjust
 HOOKDEF(RtlAdjustPrivilege, WINAPI, NTSTATUS, (IN ULONG Privilege, IN BOOL Enable, IN BOOL CurrentThread, OUT PULONG pPreviousState)) {
-    static RtlAdjustPrivilege_t Real_RtlAdjustPrivilege = GetRealFunction<RtlAdjustPrivilege_t>("ntdll.dll!RtlAdjustPrivilege");
+    static RtlAdjustPrivilege_t Real_RtlAdjustPrivilege = (RtlAdjustPrivilege_t)GetRealFunction("ntdll.dll!RtlAdjustPrivilege");
 
     LOG_FUNCTION_CALL(RtlAdjustPrivilege, Privilege, Enable, CurrentThread, pPreviousState);
 

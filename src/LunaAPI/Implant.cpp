@@ -4,11 +4,13 @@
 #include "Config.h"
 #include "Implant.h"
 
+#include "connection.h"
 #include "output.h"
 
 using namespace LunaAPI;
 
 LunaImplant::LunaImplant(LPCSTR implantID) {
+    registry = HookRegistry();
     size_t idLength = strlen(implantID);
     if (idLength > LUNA_MAX_ID_LENGTH) {
         DISP_WARN("Implant ID cannot be above " << LUNA_MAX_ID_LENGTH << "Characters. '" << implantID << "' will be truncated");
@@ -58,6 +60,13 @@ BOOL LunaImplant::Connect() {
     return TRUE;
 }
 
+void LunaImplant::Disconnect() {
+    // It doesn't really matter if it goes through or not
+    // the connection is about to close anyway
+    SendPacket(this->hPipeRPC, Op_Disconnect, NULL, 0);
+    connected = FALSE;
+}
+
 BOOL LunaImplant::Handshake() {
     DISP_VERBOSE("Attempting handshake...");
 
@@ -86,4 +95,31 @@ BOOL LunaImplant::Handshake() {
     }
     CloseHandle(hPipeRPC);
     return FALSE;
+}
+
+BOOL LunaImplant::RegisterHook(LPCSTR identifier) {
+    BOOL result = SendPacket(this->hPipeRPC, Op_RegisterHook, (LPCVOID)identifier, strlen(identifier));
+    if (!result) {
+        UPDATE_ERROR("Could not send data to LunaJuice to register hook");
+        return FALSE;
+    }
+    PacketHeader header;
+    result = RecvHeader(this->hPipeRPC, &header);
+    if (!result) {
+        UPDATE_ERROR("Could not get packet header from LunaJuice");
+        return FALSE;
+    }
+    if (header.code.response == Resp_UnknownError) {
+        DISP_ERROR("Could not register hook with LunaJuice");
+    }
+
+    HookID id = 0;
+    result = RecvFixedData(this->hPipeRPC, &id, sizeof(id));
+    if (!result) {
+        UPDATE_ERROR("Could not get hook ID from LunaJuice");
+        return FALSE;
+    }
+    this->registry[identifier] = id;
+    DISP_VERBOSE_REMOTE("Registered '" << identifier << "' as " << id << ".");
+    return TRUE;
 }
