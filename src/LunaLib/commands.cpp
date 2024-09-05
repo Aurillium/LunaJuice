@@ -34,7 +34,7 @@ BOOL Handle_RegisterHook(HANDLE hPipe, LPVOID buffer, DWORD length) {
 		free(target);
 		return SendError(hPipe, LunaAPI::Resp_UnsupportedHook);
 	}
-	LunaAPI::HookID id = LunaHook<std::any(*)(std::any)>::Register(target, hookAddress, GetDefaultMitigations(), GetDefaultLogs());
+	LunaAPI::HookID id = LunaHook<AnyFunction>::Register(target, hookAddress, GetDefaultMitigations(), GetDefaultLogs());
 	free(target);
 
 	if (id == MAXDWORD32) {

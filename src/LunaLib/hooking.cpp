@@ -13,7 +13,7 @@
 #include <polyhook2/Detour/NatDetour.hpp>
 
 // Store hook instances
-std::vector<LunaHook<std::any(*)(std::any)>*> HOOK_STORAGE = std::vector<LunaHook<std::any(*)(std::any)>*>();
+std::vector<LunaHook<AnyFunction>*> HOOK_STORAGE = std::vector<LunaHook<AnyFunction>*>();
 LunaAPI::HookRegistry REGISTRY = LunaAPI::HookRegistry();
 // Register: add hook, return ID, send back to client, client records in own registry to address with later
 
@@ -140,7 +140,7 @@ void* GetRealFunction(LPCSTR key) {
     }
     else {
         // Get the trampoline location from registry
-        LunaHook<std::any(*)(std::any)>* hook = HOOK_STORAGE[REGISTRY[key]];
+        LunaHook<AnyFunction>* hook = HOOK_STORAGE[REGISTRY[key]];
         return hook->trampoline;
     }
 }

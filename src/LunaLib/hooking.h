@@ -23,6 +23,8 @@ ret calltype Hooked_##name##sig;
 LPCSTR String_##name = #ret " " #calltype " " #name #sig; \
 NOINLINE ret calltype Hooked_##name##sig
 
+using AnyFunction = std::any(*)(std::any);
+
 template<class> class LunaHook;
 template<typename Ret, typename... Args> class LunaHook<Ret(*)(Args...)> {
 private:
@@ -64,7 +66,7 @@ void* GetFunctionAddress(IN LPCSTR moduleName, IN LPCSTR functionName);
 // Template definitions
 
 #include <any>
-extern std::vector<LunaHook<std::any(*)(std::any)>*> HOOK_STORAGE;
+extern std::vector<LunaHook<AnyFunction>*> HOOK_STORAGE;
 extern LunaAPI::HookRegistry REGISTRY;
 extern std::map<std::string, void*> HOOK_LOCATIONS;
 extern LunaAPI::MitigationFlags DEFAULT_MITIGATIONS;
@@ -154,7 +156,7 @@ template<typename Ret, typename... Args> LunaAPI::HookID LunaHook<Ret(*)(Args...
     LPSTR moduleName = target;
     LPSTR functionName = &target[i]; // Get from after the '!'
 
-    LunaHook<std::any(*)(std::any)>* newHook = new LunaHook(moduleName, functionName, hookAddress, mitigate, log);
+    LunaHook<AnyFunction>* newHook = new LunaHook(moduleName, functionName, hookAddress, mitigate, log);
     free(target); // module and function names have been used now
     if (!newHook->registerSuccess) {
         // Clean up and exit
