@@ -1,5 +1,8 @@
 #pragma once
+#include <any>
+
 #include <polyhook2/Detour/NatDetour.hpp>
+
 #include "Config.h"
 
 // Should be run at the start of the program to ensure hooks can be located when needed
@@ -65,7 +68,6 @@ void* GetFunctionAddress(IN LPCSTR moduleName, IN LPCSTR functionName);
 
 // Template definitions
 
-#include <any>
 extern std::vector<LunaHook<AnyFunction>*> HOOK_STORAGE;
 extern LunaAPI::HookRegistry REGISTRY;
 extern std::map<std::string, void*> HOOK_LOCATIONS;

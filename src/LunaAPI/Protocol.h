@@ -19,7 +19,7 @@ namespace LunaAPI {
 		Op_SetFunctionState			= 0x0016,
 		Op_SetSecuritySettings		= 0x0017,
 
-		// 0x30 - 0x3F for security
+		// 0x30 - 0x3F for security (0x30 includes log configs)
 		Op_GetDefaultPolicy			= 0x0030,
 		Op_GetFunctionInfo			= 0x0031,
 		Op_GetSecuritySettings		= 0x0032
