@@ -66,7 +66,7 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN PLARGE_INTEGER       ByteOffset OPTIONAL,
     IN PULONG               Key OPTIONAL)) {
 
-    static LunaHook<NtReadFile_t>* me = GetGlobalHook<NtReadFile_t>("ntdll.dll!NtReadFile");
+    static LunaHook<NtReadFile_t>* me = LunaHook<NtReadFile_t>::GetGlobalHook("ntdll.dll!NtReadFile");
 
     // Don't run mitigations on stdin because it's obvious
     if (FileHandle != GetStdHandle(STD_INPUT_HANDLE)) {
