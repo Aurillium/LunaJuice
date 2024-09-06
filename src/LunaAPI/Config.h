@@ -17,34 +17,45 @@ namespace LunaAPI {
     const HookID MAX_HOOKID = ((HookID)~((HookID)0));
 
     typedef std::map<std::string, HookID> HookRegistry;
+    // If these get over 32 bits, change the operators
     typedef enum _MitigationFlags {
         Mitigate_None = 0,
-        Mitigate_BlockEsc = 1,
-        Mitigate_BlanketFakeSuccess = 2,
-        Mitigate_BlanketNoPerms = 4,
+        Mitigate_BlockEsc = 1 << 0,
+        Mitigate_BlanketFakeSuccess = 1 << 1,
+        Mitigate_BlanketNoPerms = 1 << 2,
         Mitigate_All = 0xFFFFFFFF
     } MitigationFlags;
     typedef enum _LogFlags {
         Log_None = 0,
-        Log_Signature = 1,
-        Log_Stdin = 2,
-        Log_Stdout = 4,
-        Log_Stderr = 8,
+        Log_Signature = 1 << 0,
+        Log_Stdin = 1 << 1,
+        Log_Stdout = 1 << 2,
+        Log_Stderr = 1 << 3,
         Log_Stdio = 14,  // All stdio
-        Log_PrivilegeAdjust = 16,
-        Log_SpawnProcess = 32,
-        Log_SpoofPPID = 64,
+        Log_PrivilegeAdjust = 1 << 4,
+        Log_SpawnProcess = 1 << 5,
+        Log_SpoofPPID = 1 << 6,
         Log_All = 0xFFFFFFFF
     } LogFlags;
     typedef enum _SecuritySettings {
         // 2 bits
-        BlockSimilar = 1,   // Block similar DLLs to LunaLib from loading
+        BlockSimilar = 1,   // Block similar DLLs to LunaLib from loading (hash, name)
         BlockUnsigned = 2,  // Block all unsigned DLLs (and signed LunaLib) from loading
         BlockAll = 3        // Block all DLL loading
     } SecuritySettings;
 
+    // OR and AND operations for flags
     inline MitigationFlags operator|(const MitigationFlags a, const MitigationFlags b) {
-        return (MitigationFlags)((int)a | (int)b);
+        return (MitigationFlags)((unsigned int)a | (unsigned int)b);
+    }
+    inline LogFlags operator|(const LogFlags a, const LogFlags b) {
+        return (LogFlags)((unsigned int)a | (unsigned int)b);
+    }
+    inline MitigationFlags operator&(const MitigationFlags a, const MitigationFlags b) {
+        return (MitigationFlags)((unsigned int)a & (unsigned int)b);
+    }
+    inline LogFlags operator&(const LogFlags a, const LogFlags b) {
+        return (LogFlags)((unsigned int)a & (unsigned int)b);
     }
 
     // Used to find the config function
@@ -71,6 +82,36 @@ namespace LunaAPI {
         LogFlags logs;
     } HookConfig;
 
+    typedef struct _Policy {
+        MitigationFlags mitigations;
+        LogFlags logs;
+        SecuritySettings security;
+    } Policy;
+
     const MitigationFlags DEFAULT_MITIGATIONS = Mitigate_None;
     const LogFlags DEFAULT_LOGS = Log_All;
+    const SecuritySettings DEFAULT_SECURITY = BlockSimilar;
+
+    static MitigationFlags& operator |=(MitigationFlags& a, MitigationFlags b) {
+        a = a | b;
+        return a;
+    }
+    static LogFlags& operator |=(LogFlags& a, LogFlags b) {
+        a = a | b;
+        return a;
+    }
+    inline MitigationFlags operator!(const MitigationFlags a) {
+        return (MitigationFlags)(!(unsigned int)a);
+    }
+    inline LogFlags operator!(const LogFlags a) {
+        return (LogFlags)(!(unsigned int)a);
+    }
+    static MitigationFlags& operator &=(MitigationFlags& a, MitigationFlags b) {
+        a = a & b;
+        return a;
+    }
+    static LogFlags& operator &=(LogFlags& a, LogFlags b) {
+        a = a & b;
+        return a;
+    }
 }

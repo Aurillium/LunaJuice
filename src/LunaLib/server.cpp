@@ -126,6 +126,8 @@ BOOL WaitForCommand(HANDLE hPipe) {
         // Terminate connection, send no data back
         ret = true;
     }
+
+    // Set config
     else if (opcode == LunaAPI::Op_RegisterHook) {
         ret = Handle_RegisterHook(hPipe, buffer, header.length);
     }
@@ -151,14 +153,21 @@ BOOL WaitForCommand(HANDLE hPipe) {
         ret = Handle_SetSecuritySettings(hPipe, buffer, header.length);
     }
 
+    // Get config
     else if (opcode == LunaAPI::Op_GetDefaultPolicy) {
         ret = Handle_GetDefaultPolicy(hPipe, buffer, header.length);
     }
     else if (opcode == LunaAPI::Op_GetFunctionInfo) {
         ret = Handle_GetFunctionInfo(hPipe, buffer, header.length);
     }
-    else if (opcode == LunaAPI::Op_GetSecuritySettings) {
-        ret = Handle_GetSecuritySettings(hPipe, buffer, header.length);
+    else if (opcode == LunaAPI::Op_GetFunctionIdentifier) {
+        ret = Handle_GetFunctionIdentifier(hPipe, buffer, header.length);
+    }
+    else if (opcode == LunaAPI::Op_GetRegistrySize) {
+        ret = Handle_GetRegistrySize(hPipe, buffer, header.length);
+    }
+    else if (opcode == LunaAPI::Op_QueryByIdentifier) {
+        ret = Handle_QueryByIdentifier(hPipe, buffer, header.length);
     }
 
     else {
@@ -196,9 +205,11 @@ BOOL HandleClient(LPVOID lpParam) {
     while (!close) {
         close = WaitForCommand(hPipe);
     }
+    WRITELINE_DEBUG("Closing connection...");
 
 cleanup:
     // Create another thread to clean this connection up if we naturally reach the end
+    // TODO: This needs refinement
     CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)CleanupConnection, (LPVOID)hPipe, 0, NULL);
     return ret;
 }
@@ -231,7 +242,7 @@ BOOL BeginServer(LPVOID lpParam) {
             pipeName,
             PIPE_ACCESS_DUPLEX,
             PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-            1,      // One instance at a time
+            32,      // Max instances
             1024,
             1024,
             0,
@@ -259,6 +270,10 @@ BOOL BeginServer(LPVOID lpParam) {
             HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)HandleClient, (LPVOID)hPipeRPC, 0, NULL);
             connection->hThread = hThread;
             CONNECTED_CLIENTS[hPipeRPC] = connection;
+            if (hThread == NULL) {
+                WRITELINE_DEBUG("Could not create thread for RPC.");
+                continue;
+            }
         }
         else {
             WRITELINE_DEBUG("Connection failed.");

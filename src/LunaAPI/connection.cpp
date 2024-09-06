@@ -15,8 +15,7 @@ BOOL SendPacket(HANDLE hPipe, OpCode code, LPCVOID buffer, size_t length) {
     header.code.opcode = code;
     BOOL success = WriteFile(hPipe, (LPCVOID)&header, sizeof(header), &bytesWritten, NULL);
     if (!success || bytesWritten != sizeof(header)) {
-        
-        DISP_WINERROR("Could not write response code to LunaJuice implant server");
+        DISP_WINERROR("Could not write opcode to LunaJuice implant server");
         return FALSE;
     }
     if (length) {

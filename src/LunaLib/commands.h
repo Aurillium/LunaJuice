@@ -24,4 +24,6 @@ BOOL Handle_SetSecuritySettings(HANDLE hPipe, LPVOID buffer, DWORD length);
 
 BOOL Handle_GetDefaultPolicy(HANDLE hPipe, LPVOID buffer, DWORD length);
 BOOL Handle_GetFunctionInfo(HANDLE hPipe, LPVOID buffer, DWORD length);
-BOOL Handle_GetSecuritySettings(HANDLE hPipe, LPVOID buffer, DWORD length);
+BOOL Handle_GetFunctionIdentifier(HANDLE hPipe, LPVOID buffer, DWORD length);
+BOOL Handle_GetRegistrySize(HANDLE hPipe, LPVOID buffer, DWORD length);
+BOOL Handle_QueryByIdentifier(HANDLE hPipe, LPVOID buffer, DWORD length);

@@ -136,6 +136,7 @@
   <ItemGroup>
     <ClCompile Include="arguments.cpp" />
     <ClCompile Include="LunaLoader.cpp" />
+    <ClCompile Include="test.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -149,6 +150,7 @@
     <ClInclude Include="arguments.h" />
     <ClInclude Include="output.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="test.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
