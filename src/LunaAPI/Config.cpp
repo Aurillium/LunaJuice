@@ -35,8 +35,10 @@ BOOL LunaStart::SetID(LPCSTR implantID) {
     }
     size_t idLength = strlen(implantID);
     if (idLength > LUNA_MAX_ID_LENGTH) {
-        DISP_WARN("Implant ID cannot be above " << LUNA_MAX_ID_LENGTH << "Characters. '" << implantID << "' will be truncated");
+        DISP_WARN("Implant ID cannot be above " << LUNA_MAX_ID_LENGTH << " characters. '" << implantID << "' will be truncated");
+        idLength = LUNA_MAX_ID_LENGTH;
     }
     memcpy_s(id, LUNA_MAX_ID_LENGTH, implantID, idLength);
+    id[idLength] = 0;
     return TRUE;
 }

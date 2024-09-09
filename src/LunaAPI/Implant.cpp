@@ -14,12 +14,12 @@ LunaImplant::LunaImplant(LPCSTR implantID) {
     registry = HookRegistry();
     size_t idLength = strlen(implantID);
     if (idLength > LUNA_MAX_ID_LENGTH) {
-        DISP_WARN("Implant ID cannot be above " << LUNA_MAX_ID_LENGTH << "Characters. '" << implantID << "' will be truncated");
+        DISP_WARN("Implant ID cannot be above " << LUNA_MAX_ID_LENGTH << " characters. '" << implantID << "' will be truncated");
+        idLength = LUNA_MAX_ID_LENGTH;
     }
-    // Error here?
     memcpy_s(id, LUNA_MAX_ID_LENGTH, implantID, idLength);
     // Null terminate
-    id[LUNA_MAX_ID_LENGTH] = 0;
+    id[idLength] = 0;
     
     // Set this up on connect
     connected = FALSE;
@@ -32,7 +32,7 @@ ResponseCode LunaImplant::Connect() {
     for (size_t i = 0; i < LUNA_MAX_ID_LENGTH; i++) {
         pipeName[i + 9] = this->id[i];
     }
-    // Null terminate
+    // Null terminate if not done already
     pipeName[LUNA_MAX_ID_LENGTH + 9] = 0;
 
     // Attempt to connect to the named pipe
