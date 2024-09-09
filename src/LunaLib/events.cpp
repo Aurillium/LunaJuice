@@ -26,8 +26,6 @@ CONST DWORD GetParentPidInt() { return PPID_INT; }
 
 #define DEFAULT_ARGS 5
 
-EXTERN_HOOK(OpenProcess);
-
 static BOOL PopulateDetailFields() {
 	char* pidBuffer = (char*)calloc(11 /* Max PID size is 10 */, sizeof(char));
 	char* pathBuffer = (char*)calloc(MAX_PATH + 1, sizeof(char));
@@ -50,13 +48,14 @@ static BOOL PopulateDetailFields() {
 	PPID_INT = ppid;
 
 	// This should always run before hooking
+	static OpenProcess_t RealOpenProcess = (OpenProcess_t)GetRealFunction("kernel32.dll!OpenProcess");
 #if _DEBUG
-	if (Real_OpenProcess != NULL) {
-		WRITELINE_DEBUG("ASSERTION FAILED: Real_OpenProcess == NULL. Unexpected behaviour will occur (probably a crash on the next line).");
-		WRITELINE_DEBUG("Make sure to hook AFTER this code, or use Real_OpenProcess below.");
+	if (RealOpenProcess == NULL) {
+		WRITELINE_DEBUG("OpenProcess function could not be found. This indicates a bug in LunaJuice.");
+		return FALSE;
 	}
 #endif
-	HANDLE parentHandle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, ppid);
+	HANDLE parentHandle = RealOpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, ppid);
 	unsigned long bufferLen = MAX_PATH;
 	QueryFullProcessImageNameA(parentHandle, 0, parentPathBuffer, &bufferLen);
 

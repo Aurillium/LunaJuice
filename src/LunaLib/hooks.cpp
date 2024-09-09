@@ -19,6 +19,9 @@ BOOL firstConsoleRead = TRUE;
 // No point using WRITELINE_DEBUG here, it's only compiled on debug mode
 HOOKDEF(MessageBoxA, WINAPI, BOOL, (HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType))
 {
+    GET_REAL("user32.dll", MessageBoxA);
+    //static NtReadFile_t Real_NtReadFile = (NtReadFile_t)GetRealFunction("ntdll.dll!NtReadFile");
+
     std::cout << "Intercepted MessageBoxA called!" << std::endl;
     std::cout << "Text: " << lpText << std::endl;
     std::cout << "Caption: " << lpCaption << std::endl;
@@ -29,10 +32,7 @@ HOOKDEF(MessageBoxA, WINAPI, BOOL, (HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, 
 
 // Privilege adjust
 HOOKDEF(RtlAdjustPrivilege, WINAPI, NTSTATUS, (IN ULONG Privilege, IN BOOL Enable, IN BOOL CurrentThread, OUT PULONG pPreviousState)) {
-    MITIGATION_SETUP;
-    BLANKET_SUCCESS;
-    BLANKET_NOPERMS_NTSTATUS;
-    BLOCK_ESC;
+    static RtlAdjustPrivilege_t Real_RtlAdjustPrivilege = (RtlAdjustPrivilege_t)GetRealFunction("ntdll.dll!RtlAdjustPrivilege");
 
     LOG_FUNCTION_CALL(RtlAdjustPrivilege, Privilege, Enable, CurrentThread, pPreviousState);
 
@@ -43,14 +43,18 @@ HOOKDEF(RtlAdjustPrivilege, WINAPI, NTSTATUS, (IN ULONG Privilege, IN BOOL Enabl
     // Success
     return 0;
 }
+
 HOOKDEF(ZwAdjustPrivilegesToken, NTAPI, NTSTATUS, (HANDLE TokenHandle, BOOLEAN DisableAllPrivileges, PTOKEN_PRIVILEGES TokenPrivileges, ULONG PreviousPrivilegesLength, PTOKEN_PRIVILEGES PreviousPrivileges, PULONG RequiredLength)) {
+    GET_REAL("ntdll.dll", ZwAdjustPrivilegesToken);
     WRITELINE_DEBUG("ZW adjust");
     return Real_ZwAdjustPrivilegesToken(TokenHandle, DisableAllPrivileges, TokenPrivileges, PreviousPrivilegesLength, PreviousPrivileges, RequiredLength);
 }
 HOOKDEF(NtAdjustPrivilegesToken, NTAPI, NTSTATUS, (HANDLE TokenHandle, BOOLEAN DisableAllPrivileges, PTOKEN_PRIVILEGES TokenPrivileges, ULONG PreviousPrivilegesLength, PTOKEN_PRIVILEGES PreviousPrivileges, PULONG RequiredLength)) {
+    GET_REAL("ntdll.dll", NtAdjustPrivilegesToken);
     WRITELINE_DEBUG("NT adjust");
     return Real_NtAdjustPrivilegesToken(TokenHandle, DisableAllPrivileges, TokenPrivileges, PreviousPrivilegesLength, PreviousPrivileges, RequiredLength);
 }
+
 HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN HANDLE               FileHandle,
     IN HANDLE               Event OPTIONAL,
@@ -62,10 +66,11 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
     IN PLARGE_INTEGER       ByteOffset OPTIONAL,
     IN PULONG               Key OPTIONAL)) {
 
-    MITIGATION_SETUP;
+    static LunaHook<NtReadFile_t>* me = LunaHook<NtReadFile_t>::GetGlobalHook("ntdll.dll!NtReadFile");
+
+    // Don't run mitigations on stdin because it's obvious
     if (FileHandle != GetStdHandle(STD_INPUT_HANDLE)) {
-        BLANKET_SUCCESS;
-        BLANKET_NOPERMS_NTSTATUS;
+        //NTSTATUS_MITIGATIONS;
     }
     
     LOG_FUNCTION_CALL(NtReadFile, FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
@@ -77,12 +82,12 @@ HOOKDEF(NtReadFile, NTAPI, NTSTATUS, (
             firstNtRead = FALSE;
         }
         WRITE_DEBUG("(hooked) ");
-        NTSTATUS result = Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+        NTSTATUS result = me->trampoline(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
         WRITELINE_DEBUG("DATA: " << (char*)Buffer);
         LogStdin((LPCSTR)Buffer);
         return result;
     } else {
-        return Real_NtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+        return me->trampoline(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
     }
 }
 
@@ -93,12 +98,11 @@ HOOKDEF(ReadConsoleA, WINAPI, BOOL, (
     OUT LPDWORD lpNumberOfCharsRead,
     IN OPTIONAL PCONSOLE_READCONSOLE_CONTROL pInputControl)) {
 
-    MITIGATION_SETUP;
-    if (hConsoleInput != GetStdHandle(STD_INPUT_HANDLE)) {
-        BLANKET_SUCCESS_BOOL;
-        BLANKET_NOPERMS_BOOL;
-    }
+    GET_REAL("kernel32.dll", ReadConsoleA);
 
+    if (hConsoleInput != GetStdHandle(STD_INPUT_HANDLE)) {
+        //BOOL_MITIGATIONS;
+    }
 
     if (hConsoleInput == GetStdHandle(STD_INPUT_HANDLE)) {
         // If it's our first time, try read the buffer before overwriting
@@ -116,6 +120,7 @@ HOOKDEF(ReadConsoleA, WINAPI, BOOL, (
         return Real_ReadConsoleA(hConsoleInput, lpBuffer, nNumberOfCharsToRead, lpNumberOfCharsRead, pInputControl);
     }
 }
+
 HOOKDEF(ReadConsoleW, WINAPI, BOOL, (
     IN HANDLE hConsoleInput,
     OUT LPVOID lpBuffer,
@@ -123,10 +128,10 @@ HOOKDEF(ReadConsoleW, WINAPI, BOOL, (
     OUT LPDWORD lpNumberOfCharsRead,
     IN OPTIONAL PCONSOLE_READCONSOLE_CONTROL pInputControl)) {
 
-    MITIGATION_SETUP;
+    GET_REAL("kernel32.dll", ReadConsoleW);
+
     if (hConsoleInput != GetStdHandle(STD_INPUT_HANDLE)) {
-        BLANKET_SUCCESS_BOOL;
-        BLANKET_NOPERMS_BOOL;
+        //BOOL_MITIGATIONS;
     }
 
     if (hConsoleInput == GetStdHandle(STD_INPUT_HANDLE)) {
@@ -161,9 +166,9 @@ HOOKDEF(NtWriteFile, NTAPI, NTSTATUS, (
     IN  PLARGE_INTEGER   ByteOffset OPTIONAL,
     IN  PULONG           Key OPTIONAL)) {
 
-    MITIGATION_SETUP;
-    BLANKET_SUCCESS;
-    BLANKET_NOPERMS_NTSTATUS;
+    GET_REAL("ntdll.dll", NtWriteFile);
+
+    //NTSTATUS_MITIGATIONS;
 
     if (FileHandle == GetStdHandle(STD_OUTPUT_HANDLE)) {
         //WRITE_DEBUG("(hooked) ");
@@ -183,9 +188,7 @@ HOOKDEF(NtWriteFile, NTAPI, NTSTATUS, (
 
 // Open process
 HOOKDEF(OpenProcess, WINAPI, HANDLE, (IN DWORD dwDesiredAccess, IN BOOL bInheritHandle, IN DWORD dwProcessId)) {
-    MITIGATION_SETUP;
-    BLANKET_SUCCESS;
-    BLANKET_NOPERMS_POINTER;
+    GET_REAL("kernel32.dll", OpenProcess);
 
     LOG_FUNCTION_CALL(OpenProcess, dwDesiredAccess, bInheritHandle, dwProcessId);
 
@@ -196,63 +199,54 @@ HOOKDEF(OpenProcess, WINAPI, HANDLE, (IN DWORD dwDesiredAccess, IN BOOL bInherit
 
 // Remote threads
 HOOKDEF(CreateRemoteThread, WINAPI, HANDLE, (HANDLE hProcess, LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, LPDWORD lpThreadId)) {
-    MITIGATION_SETUP;
-    BLANKET_SUCCESS;
-    BLANKET_NOPERMS_POINTER;
+    GET_REAL("kernel32.dll", CreateRemoteThread);
     
     LOG_FUNCTION_CALL(CreateRemoteThread, hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
     
     WRITELINE_DEBUG("Detected remote thread");
     return Real_CreateRemoteThread(hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
 }
+
 HOOKDEF(CreateRemoteThreadEx, WINAPI, HANDLE, (HANDLE hProcess, LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList, LPDWORD lpThreadId)) {
-    MITIGATION_SETUP;
-    BLANKET_SUCCESS;
-    BLANKET_NOPERMS_POINTER;
+    GET_REAL("kernel32.dll", CreateRemoteThreadEx);
     
     LOG_FUNCTION_CALL(CreateRemoteThreadEx, hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpAttributeList, lpThreadId);
     
     WRITELINE_DEBUG("Detected remote thread");
     return Real_CreateRemoteThreadEx(hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpAttributeList, lpThreadId);
-}
+    }
 
 // Remote writes
 HOOKDEF(WriteProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPVOID lpBaseAddress, LPCVOID lpBuffer, SIZE_T nSize, SIZE_T* lpNumberofBytesWritten)) {
-    MITIGATION_SETUP;
-    BLANKET_SUCCESS_BOOL;
-    BLANKET_NOPERMS_BOOL;
+    GET_REAL("kernel32.dll", WriteProcessMemory);
     
     LOG_FUNCTION_CALL(WriteProcessMemory, hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberofBytesWritten);
 
     WRITELINE_DEBUG("Detected process write");
     return Real_WriteProcessMemory(hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberofBytesWritten);
 }
+
 // Remote reads
 HOOKDEF(ReadProcessMemory, WINAPI, BOOL, (HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize, SIZE_T* lpNumberOfBytesRead)) {
-    MITIGATION_SETUP;
-    BLANKET_SUCCESS_BOOL;
-    BLANKET_NOPERMS_BOOL;
+    GET_REAL("kernel32.dll", ReadProcessMemory);
     
     LOG_FUNCTION_CALL(ReadProcessMemory, hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberOfBytesRead);
 
     //WRITELINE_DEBUG("Detected process read");
     return Real_ReadProcessMemory(hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberOfBytesRead);
-}
+    }
 
 // High level process creation
-HOOKDEF(CreateProcessW, WINAPI, BOOL, (LPCWSTR lpApplicationName, LPWSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes, LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles, DWORD dwCreationFlags, LPVOID lpEnvironment, LPCWSTR lpCurrentDirectory, LPSTARTUPINFOW lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation)) {
-    MITIGATION_SETUP;
-    BLANKET_SUCCESS_BOOL;
-    BLANKET_NOPERMS_BOOL;
+HOOKDEF (CreateProcessW, WINAPI, BOOL, (LPCWSTR lpApplicationName, LPWSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes, LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles, DWORD dwCreationFlags, LPVOID lpEnvironment, LPCWSTR lpCurrentDirectory, LPSTARTUPINFOW lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation)) {
+    GET_REAL("kernel32.dll", CreateProcessW);
     
     // This is currently a way of escaping the poison
     WRITELINE_DEBUG("New process started (wide strings)");
     return Real_CreateProcessW(lpApplicationName, lpCommandLine, lpProcessAttributes, lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment, lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
 }
+
 HOOKDEF(CreateProcessA, WINAPI, BOOL, (LPCSTR lpApplicationName, LPSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes, LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles, DWORD dwCreationFlags, LPVOID lpEnvironment, LPCSTR lpCurrentDirectory, LPSTARTUPINFOA lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation)) {
-    MITIGATION_SETUP;
-    BLANKET_SUCCESS_BOOL;
-    BLANKET_NOPERMS_BOOL;
+    GET_REAL("kernel32.dll", CreateProcessA);
     
     // This is currently a way of escaping the poison
     WRITELINE_DEBUG("New process started (normal strings)");
@@ -278,9 +272,7 @@ HOOKDEF(NtCreateUserProcess, NTAPI, NTSTATUS, (
     IN OUT PPS_CREATE_INFO CreateInfo,
     IN PPS_ATTRIBUTE_LIST AttributeList
 )) {
-    MITIGATION_SETUP;
-    BLANKET_SUCCESS;
-    BLANKET_NOPERMS_NTSTATUS;
+    GET_REAL("ntdll.dll", NtCreateUserProcess);
 
     // Fake parent process handle
     //HANDLE hParent = AttributeList->Attributes[5].ValuePtr;
@@ -327,6 +319,7 @@ HOOKDEF(NtCreateUserProcess, NTAPI, NTSTATUS, (
     return status;
 }
 
+
 HOOKDEF(CoCreateInstance, WINAPI, HRESULT, (
     IN REFCLSID rclsid,
     IN LPUNKNOWN pUnkOuter,
@@ -334,6 +327,8 @@ HOOKDEF(CoCreateInstance, WINAPI, HRESULT, (
     IN REFIID riid,
     OUT LPVOID* ppv
 )) {
+    GET_REAL("kernel32.dll", CoCreateInstance);
+
     HRESULT result = Real_CoCreateInstance(rclsid, pUnkOuter, dwClsContext, riid, ppv);
 
     return result;

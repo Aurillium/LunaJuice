@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -180,6 +180,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="commands.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="events.h" />
     <ClInclude Include="forbidden_headers.h" />
@@ -190,22 +191,24 @@
     <ClInclude Include="messages.h" />
     <ClInclude Include="mitigations.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="secure.h" />
     <ClInclude Include="server.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="commands.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="events.cpp" />
     <ClCompile Include="functionlogs.cpp" />
     <ClCompile Include="hooking.cpp" />
     <ClCompile Include="hooks.cpp" />
-    <ClCompile Include="mitigations.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="secure.cpp" />
     <ClCompile Include="server.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>

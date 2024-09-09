@@ -6,9 +6,18 @@
 
 #include "Loader.h"
 #include "Config.h"
+#include "random.h"
 #include "output.h"
 
 using namespace LunaAPI;
+
+// Will be false if uninitialised
+BOOL verboseEnabled = FALSE;
+
+// Defined in Config.cpp, here because that header file is to be exported
+void LUNA_API LunaAPI::InitialiseLuna(BOOL verbose) {
+    verboseEnabled = verbose;
+}
 
 BOOL LUNA_API LunaAPI::InjectDLL(HANDLE IN hProcess, LPCSTR IN dllPath, LunaShared OUT *sharedMemory) {
     // Prepare shared object

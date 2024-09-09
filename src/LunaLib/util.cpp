@@ -7,6 +7,8 @@
 
 #include "debug.h"
 
+#include "Config.h"
+
 char* ConvertUnicodeStringToAnsi(const UNICODE_STRING& unicodeString) {
     // Determine the required buffer size
     int bufferSize = WideCharToMultiByte(

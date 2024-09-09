@@ -9,6 +9,7 @@
 #include "arguments.h"
 #include "output.h"
 #include "resource.h"
+#include "test.h"
 #include "util.h"
 
 #include "Config.h"
@@ -221,79 +222,11 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
     if (arguments->name != NULL && arguments->name[0] != 0)
         config.SetID(arguments->name);
 
-    // Set up hooks
+    // Add mitigations
 
     // Loop over and OR with hook flags in config
     size_t startIndex = 0, i = 0;
     BOOL inText = FALSE;
-
-    DISP_VERBOSE("Starting to add hooks...");
-
-    if (arguments->hooks[0] == 0) {
-        UPDATE_VERBOSE("No data, using default hooks.");
-    }
-    else {
-        // Custom hooks specified, start with none and build
-        config.hooks = LunaAPI::NoHooks;
-
-        while (true) {
-            CHAR current = arguments->hooks[i];
-
-            // When we get to the end of a hook, add it to config
-            if (IS_WHITESPACE(current) || current == ',' || current == 0) {
-                // We've hit whitespace or a comma after being in text, time to drop
-                if (inText) {
-
-                    // This is technically constant/static because it comes directly from argv
-                    // We can modify it though
-                    ((char*)arguments->hooks)[i] = 0;
-
-                    // Get hook name to compare
-                    LPCSTR hookName = &arguments->hooks[startIndex];
-
-                    // Compare and add hooks
-                    if (NoCapCmp("DEFAULT", hookName)) {
-                        config.hooks = config.hooks | LunaAPI::DEFAULT_HOOKS;
-                    }
-                    else ADD_FLAG_CMP(NtReadFile, hookName, config.hooks)
-                    else ADD_FLAG_CMP(NtWriteFile, hookName, config.hooks)
-                    else ADD_FLAG_CMP(ReadConsole, hookName, config.hooks)
-                    else ADD_FLAG_CMP(RtlAdjustPrivilege, hookName, config.hooks)
-                    else ADD_FLAG_CMP(OpenProcess, hookName, config.hooks)
-                    else ADD_FLAG_CMP(CreateRemoteThread, hookName, config.hooks)
-                    else ADD_FLAG_CMP(WriteProcessMemory, hookName, config.hooks)
-                    else ADD_FLAG_CMP(ReadProcessMemory, hookName, config.hooks)
-                    else ADD_FLAG_CMP(CreateProcess, hookName, config.hooks)
-                    else ADD_FLAG_CMP(NtCreateUserProcess, hookName, config.hooks)
-                    else {
-                        DISP_WARN("Could not find hook '" << hookName << "'");
-                        }
-
-                        UPDATE_VERBOSE("Added " << hookName);
-                        inText = FALSE;
-                }
-
-                // Process from after whitespace/comma
-                startIndex = i + 1;
-            }
-            else {
-                // If not whitespace/comma, we're in a privilege.
-                inText = TRUE;
-            }
-
-            // We've reached the end
-            if (current == 0) {
-                break;
-            }
-
-            i++;
-        }
-    }
-
-    // Add mitigations
-
-    startIndex = 0, i = 0;
-    inText = FALSE;
 
     DISP_VERBOSE("Starting to add mitigations...");
 
@@ -317,9 +250,9 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
                     LPCSTR mitigationName = &arguments->mitigations[startIndex];
 
                     // Compare and add mitigations
-                    ADD_FLAG_CMP(BlockEsc, mitigationName, config.mitigations)
-                    else ADD_FLAG_CMP(BlanketFakeSuccess, mitigationName, config.mitigations)
-                    else ADD_FLAG_CMP(BlanketNoPerms, mitigationName, config.mitigations)
+                    ADD_MITIGATE_CMP(BlockEsc, mitigationName, config.mitigations)
+                    else ADD_MITIGATE_CMP(BlanketFakeSuccess, mitigationName, config.mitigations)
+                    else ADD_MITIGATE_CMP(BlanketNoPerms, mitigationName, config.mitigations)
                     else {
                 DISP_WARN("Could not find mitigation '" << mitigationName << "'");
                 }
@@ -332,7 +265,7 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
                 startIndex = i + 1;
             }
             else {
-                // If not whitespace/comma, we're in a privilege.
+                // If not whitespace/comma, we're in a mitigation.
                 inText = TRUE;
             }
 
@@ -345,6 +278,72 @@ BOOL PopulateStartData(LUNA_ARGUMENTS* arguments) {
         }
     }
 
+    return TRUE;
+}
+
+// Consumes hooks
+BOOL SetupHooks(CHAR name[LUNA_MAX_ID_LENGTH], LUNA_ARGUMENTS* arguments) {
+    LunaAPI::LunaImplant implant = LunaAPI::LunaImplant(name);
+
+    if (!implant.Connect()) {
+        DISP_ERROR("Could not connect to LunaJuice RPC");
+        return FALSE;
+    }
+    DISP_REMOTE("Connected to LunaJuice!");
+
+    if (arguments->hooks[0] == 0) {
+        UPDATE_VERBOSE("No data, using default hooks.");
+    }
+    else {
+        DISP_VERBOSE("Starting to add hooks...");
+        size_t startIndex = 0, i = 0;
+        BOOL inText = FALSE;
+
+        // Custom hooks specified, start with none and build
+
+        // Add these after loading
+        while (true) {
+            CHAR current = arguments->hooks[i];
+
+            // When we get to the end of a hook, add it to config
+            if (IS_WHITESPACE(current) || current == ',' || current == 0) {
+                // We've hit whitespace or a comma after being in text, time to drop
+                if (inText) {
+
+                    // This is technically constant/static because it comes directly from argv
+                    // We can modify it though
+                    ((char*)arguments->hooks)[i] = 0;
+
+                    // Get hook name to compare
+                    LPCSTR hookName = &arguments->hooks[startIndex];
+
+                    if (!implant.RegisterHook(hookName)) {
+                        UPDATE_ERROR("Could not hook '" << hookName << "'");
+                    } else {
+                        UPDATE_VERBOSE("Added hook for '" << hookName << "'!");
+                    }
+                    inText = FALSE;
+                }
+
+                // Process from after whitespace/comma
+                startIndex = i + 1;
+            }
+            else {
+                // If not whitespace/comma, we're in a hook.
+                inText = TRUE;
+            }
+
+            // We've reached the end
+            if (current == 0) {
+                break;
+            }
+
+            i++;
+        }
+    }
+
+    implant.Disconnect();
+    DISP_REMOTE("Disconnected from LunaJuice!");
     return TRUE;
 }
 
@@ -434,9 +433,6 @@ int main(int argc, char* argv[])
 {
     int ret = 0;
 
-    // Seed random with time for generating IDs
-    srand(time(NULL));
-
     // Get the handle to the standard output
     // We're going to try enable nice ANSI formatting
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -456,6 +452,9 @@ int main(int argc, char* argv[])
     // Process arguments
     LUNA_ARGUMENTS arguments = GetArguments(argc, argv);
     verboseEnabled = arguments.verbose;
+
+    // Initialise LunaJuice API
+    LunaAPI::InitialiseLuna(verboseEnabled);
 
     if (arguments.help) {
         DisplayUsage();
@@ -492,10 +491,38 @@ int main(int argc, char* argv[])
         LunaAPI::LunaImplant implant = LunaAPI::LunaImplant(arguments.name);
 
         implant.Connect();
+        DISP_REMOTE("Connected to LunaJuice!");
+        implant.Disconnect();
+        DISP_REMOTE("Disconnected from LunaJuice!");
 
         return 0;
 
-    } else {
+    }
+    else if (arguments.testMode) {
+        verboseEnabled = TRUE;
+        // Test RPC flow
+
+        if (arguments.name[0] == 0) {
+            DISP_ERROR("Expected an implant ID. Specify this with /i:<value>");
+            return 1;
+        }
+        LunaAPI::LunaImplant implant = LunaAPI::LunaImplant(arguments.name);
+
+        if (TestRPC(implant)) {
+            // This is failing saying invalid handle
+            // Server also fails saying it can't read from pipe
+            // Pipe is likely being broken either here or the return of the last function, unsure why
+            implant.Disconnect();
+            DISP_SUCCESS("RPC test succeeded!");
+            return 0;
+        }
+        else {
+            implant.Disconnect();
+            DISP_ERROR("RPC test failed");
+            return 1;
+        }
+    } 
+    else {
         // Injection flow
         HANDLE hProcess;
 
@@ -557,9 +584,22 @@ int main(int argc, char* argv[])
         DISP_LOG("Initialising LunaJuice...");
         if (!LunaAPI::InitialiseLunaJuice(hProcess, (LPTHREAD_START_ROUTINE)initData.lpInit, config)) {
             DISP_ERROR("Could not initialise LunaJuice");
-            return 1;
+            ret = 1;
+            goto cleanup;
         }
         UPDATE_LOG("Initialised!");
+
+        DISP_LOG("Connecting via RPC to hook functions...");
+        // Initialisation waits for the thread to exit, but does not consider that the RPC is created in
+        // a new thread, so still wait
+        // Can we do this better? Maybe wait for file to be created in the init thread in implant?
+        Sleep(2000);
+        if (!SetupHooks(config.id, &arguments)) {
+            DISP_ERROR("Could not set up hooks");
+            ret = 1;
+            goto cleanup;
+        }
+        UPDATE_LOG("Hooked!");
 
         // We can now use the RPC either from here or elsewhere
         DISP_SUCCESS("LunaJuice is ready to go!");

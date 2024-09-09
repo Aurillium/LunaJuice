@@ -4,19 +4,6 @@
 
 using namespace LunaAPI;
 
-#ifdef _DEBUG
-#define VERBOSE_DEFAULT TRUE
-#else
-#define VERBOSE_DEFAULT FALSE
-#endif
-
-// Will be false if uninitialised
-BOOL verboseEnabled = FALSE;
-
-void InitialiseLuna(BOOL verbose = VERBOSE_DEFAULT) {
-    verboseEnabled = verbose;
-}
-
 #ifdef LUNA_API_STATIC
 // Code specific to static linking
 #else

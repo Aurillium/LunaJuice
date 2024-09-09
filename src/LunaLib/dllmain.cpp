@@ -22,72 +22,22 @@
 static HANDLE hMapFile;
 static LPVOID lpMemFile;
 
-EXTERN_HOOK(NtReadFile);
-EXTERN_HOOK(NtWriteFile);
-EXTERN_HOOK(ReadConsoleA);
-EXTERN_HOOK(ReadConsoleW);
-EXTERN_HOOK(RtlAdjustPrivilege);
-EXTERN_HOOK(OpenProcess);
-EXTERN_HOOK(CreateRemoteThread);
-EXTERN_HOOK(CreateRemoteThreadEx);
-EXTERN_HOOK(WriteProcessMemory);
-EXTERN_HOOK(ReadProcessMemory);
-EXTERN_HOOK(CreateProcessW);
-EXTERN_HOOK(CreateProcessA);
-EXTERN_HOOK(NtCreateUserProcess);
-EXTERN_HOOK(CoCreateInstance);
-
 // Install the hooks
-void InstallHooks(LunaAPI::HookFlags flags) {
-#if _DEBUG
-    EXTERN_HOOK(MessageBoxA);
-    QUICK_HOOK("user32.dll", MessageBoxA);
-#endif
-
-    // File read/write
-    if (flags & LunaAPI::Enable_NtReadFile) {
-        QUICK_HOOK("ntdll.dll", NtReadFile);
-    }
-    if (flags & LunaAPI::Enable_NtWriteFile) {
-        QUICK_HOOK("ntdll.dll", NtWriteFile);
-    }
-    // Console read
-    if (flags & LunaAPI::Enable_ReadConsole) {
-        QUICK_HOOK("kernel32.dll", ReadConsoleA);
-        QUICK_HOOK("kernel32.dll", ReadConsoleW);
-    }
-    
-    if (flags & LunaAPI::Enable_RtlAdjustPrivilege) {
-        QUICK_HOOK("ntdll.dll", RtlAdjustPrivilege);
-    }
-
-    // Remote processes
-    if (flags & LunaAPI::Enable_OpenProcess) {
-        QUICK_HOOK("kernel32.dll", OpenProcess);
-    }
-    if (flags & LunaAPI::Enable_CreateRemoteThread) {
-        QUICK_HOOK("kernel32.dll", CreateRemoteThread);
-        QUICK_HOOK("kernel32.dll", CreateRemoteThreadEx);
-    }
-    if (flags & LunaAPI::Enable_WriteProcessMemory) {
-        QUICK_HOOK("kernel32.dll", WriteProcessMemory);
-    }
-    if (flags & LunaAPI::Enable_ReadProcessMemory) {
-        QUICK_HOOK("kernel32.dll", ReadProcessMemory);
-    }
-    
-    // Process start
-    if (flags & LunaAPI::Enable_CreateProcess) {
-        QUICK_HOOK("kernel32.dll", CreateProcessW);
-        QUICK_HOOK("kernel32.dll", CreateProcessA);
-    }
-    if (flags & LunaAPI::Enable_NtCreateUserProcess) {
-        QUICK_HOOK("ntdll.dll", NtCreateUserProcess);
-    }
-
-    if (flags & LunaAPI::Enable_CoCreateInstance) {
-        QUICK_HOOK("ole32.dll", CoCreateInstance);
-    }
+void PrepareHooks() {
+    PREPARE_HOOK("ole32.dll", CoCreateInstance);
+    PREPARE_HOOK("ntdll.dll", NtReadFile);
+    PREPARE_HOOK("ntdll.dll", NtWriteFile);
+    PREPARE_HOOK("ntdll.dll", RtlAdjustPrivilege);
+    PREPARE_HOOK("ntdll.dll", NtCreateUserProcess);
+    PREPARE_HOOK("kernel32.dll", OpenProcess);
+    PREPARE_HOOK("kernel32.dll", CreateRemoteThread);
+    PREPARE_HOOK("kernel32.dll", CreateRemoteThreadEx);
+    PREPARE_HOOK("kernel32.dll", WriteProcessMemory);
+    PREPARE_HOOK("kernel32.dll", ReadProcessMemory);
+    PREPARE_HOOK("kernel32.dll", CreateProcessA);
+    PREPARE_HOOK("kernel32.dll", CreateProcessW);
+    PREPARE_HOOK("kernel32.dll", ReadConsoleA);
+    PREPARE_HOOK("kernel32.dll", ReadConsoleW);
 }
 
 BOOL CloseShare() {
@@ -105,8 +55,9 @@ BOOL LoadConfig(LunaAPI::LunaStart config) {
     WRITELINE_DEBUG("Hello, my name is " << config.id << "!");
 
     // Initialise hooks
-    InstallHooks(config.hooks);
-    SetMitigations(config.mitigations);
+    SetDefaultMitigations(config.mitigations);
+    SetDefaultLogs(config.logs);
+    //InstallInitialHooks(config.hooks, config.mitigations, config.logs);
     WRITELINE_DEBUG("Installed hooks!");
 
     CloseShare();
@@ -115,7 +66,7 @@ BOOL LoadConfig(LunaAPI::LunaStart config) {
     HANDLE hThread = CreateThread(
         NULL,                               // Default security attributes
         0,                                  // Default stack size
-        (LPTHREAD_START_ROUTINE)BeginPipe,  // Thread function
+        (LPTHREAD_START_ROUTINE)BeginServer,// Thread function
         &config.id,                         // Thread function arguments
         0,                                  // Default creation flags
         NULL);                              // No thread identifier needed
@@ -174,11 +125,12 @@ __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for
         DisableThreadLibraryCalls(hModule);
 
         WRITELINE_DEBUG("Attached to process...");
+        PrepareHooks();
+        WRITELINE_DEBUG("Prepared hooks!");
         if (!InitShare(hModule)) {
             WRITELINE_DEBUG("Could not set up shared memory.");
         }
-        WRITELINE_DEBUG("Initialised share memory...");
-
+        WRITELINE_DEBUG("Initialised share memory!");
         if (!OpenLogger()) {
             WRITELINE_DEBUG("Could not open logger.");
         }

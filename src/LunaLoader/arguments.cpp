@@ -267,6 +267,14 @@ void ParseArg(int* index, int argc, char* argv[], char eq, LUNA_ARGUMENTS* args)
 		LPCSTR processName = ParseString(valueBuffer);
 		args->pid = FindPidByName(processName);
 	}
+#if _DEBUG
+	else if (
+		NoCapCmp(current, "test", nameLength)
+		) {
+		DISP_LOG("Testing mode is enabled. Verbose will be turned on.");
+		args->testMode = ParseBool(valueBuffer);
+	}
+#endif
 	else {
 		// Quick hack to display only the name
 		// This is safe because we don't use it later; no info lost
@@ -299,9 +307,9 @@ void DisplayUsage() {
 		"Controls:                        " << std::endl <<
 		"/c, /rpc                         Connect to RPC. Currently requires implant name" << std::endl <<
 		"/l, /load, /hook                 A list of functions to hook. 'default' can be" << std::endl <<
-		"/hooks=function:dll:version,...  specified to keep the default functions and add" << std::endl <<
+		"/hooks=dll!function,...          specified to keep the default functions and add" << std::endl <<
 		"                                 more. The DLL name containing the function must" << std::endl <<
-		"                                 be provided. The version (2-4) is 2 by default." << std::endl <<
+		"                                 be provided." << std::endl <<
 		"                                 " << std::endl <<
 		"Logging:                         " << std::endl <<
 		"/e, /events:+evid,-evid...       A list of logging event IDs and/or names to" << std::endl <<
@@ -311,7 +319,12 @@ void DisplayUsage() {
 		"/p, /pid:pid                     Process ID of target." << std::endl <<
 		"/n, /name:process_name           Find target by process name (less accurate)." << std::endl <<
 		"/i, /implant:implant_name        Implant name to connect with (<=" << LUNA_MAX_ID_LENGTH << " chars)." << std::endl <<
-		"" << std::endl <<
+#if _DEBUG
+		"                                 " << std::endl <<
+		"Testing:                         " << std::endl <<
+		"/test                            Enable RPC testing mode (enables verbose)." << std::endl <<
+#endif
+		"                                 " << std::endl <<
 		"If one argument fails to parse, the next equivalent argument with the same name will be taken instead." << std::endl <<
 		"More information available on the GitHub wiki: https://github.com/Aurillium/LunaJuice/wiki" << std::endl <<
 	std::endl;
