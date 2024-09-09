@@ -20,6 +20,7 @@ namespace LunaAPI {
 		LunaImplant(LPCSTR id);
 		ResponseCode Connect();
 		void Disconnect();
+		BOOL IsConnected();
 
 		// Set config
 		ResponseCode RegisterHook(LPCSTR identifier);
@@ -37,10 +38,13 @@ namespace LunaAPI {
 
 		// Get config
 		ResponseCode GetDefaultPolicy(Policy* policy);
-		ResponseCode GetFunctionInfo(HookID id, HookConfig* config);
-		ResponseCode GetFunctionInfo(LPCSTR id, HookConfig* config);
+		ResponseCode GetFunctionInfo(HookID id, HookConfig* config, BOOL* enabled);
+		ResponseCode GetFunctionInfo(LPCSTR id, HookConfig* config, BOOL* enabled);
 		//ResponseCode GetFunctionIdentifier(HookID id, LPCSTR* answer, size_t* length);
 		ResponseCode GetRegistrySize(HookID* size);
 		ResponseCode QueryByIdentifier(LPCSTR id, HookID* answer);
+
+		// Helper functions built on others
+		ResponseCode DownloadRegistry();
 	};
 }

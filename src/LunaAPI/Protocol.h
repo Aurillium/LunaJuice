@@ -1,6 +1,13 @@
 #pragma once
 
 namespace LunaAPI {
+	// All the below codes are set to be easily distinguished
+	// Virtual codes can be AND-compared with Resp_Virtal,
+	// error responses can be compared with Resp_Error,
+	// responses in general can be compared with Resp_Success,
+	// and opcodes cannot be compared
+	// Opcodes are not designed to be distinguished based on type,
+	// they're just categorised for convenience
 
 	// The registry is not designed to be used by the client, it is
 	// only intended to be used to set up new connections
@@ -13,21 +20,21 @@ namespace LunaAPI {
 
 		// 0x10 - 0x2F for set config
 		Op_RegisterHook				= 0x0010,	// Done
-		Op_SetDefaultMitigations	= 0x0011,	// Untested - needs client
-		Op_SetDefaultLogging		= 0x0012,	// Untested - needs client
-		Op_SetFunctionConfig		= 0x0013,	// Untested - needs client
-		Op_AddFunctionConfig		= 0x0014,	// Untested - needs client
-		Op_DelFunctionConfig		= 0x0015,	// Untested - needs client
-		Op_SetFunctionState			= 0x0016,	// Untested - needs client
-		Op_SetSecuritySettings		= 0x0017,	// Untested - needs client
+		Op_SetDefaultMitigations	= 0x0011,	// Done
+		Op_SetDefaultLogging		= 0x0012,	// Done
+		Op_SetFunctionConfig		= 0x0013,	// Done
+		Op_AddFunctionConfig		= 0x0014,	// Done
+		Op_DelFunctionConfig		= 0x0015,	// Done
+		Op_SetFunctionState			= 0x0016,	// Untested
+		Op_SetSecuritySettings		= 0x0017,	// Done
 
 		// 0x30 - 0x3F for get config
 		// x33 and x32 can be used to enumerate the registry
-		Op_GetDefaultPolicy			= 0x0030,	// Untested - needs client
-		Op_GetFunctionInfo			= 0x0031,	// Untested - needs client
+		Op_GetDefaultPolicy			= 0x0030,	// Done
+		Op_GetFunctionInfo			= 0x0031,	// Done
 		Op_GetFunctionIdentifier	= 0x0032,	
-		Op_GetRegistrySize			= 0x0033,	// Untested - needs client
-		Op_QueryByIdentifier		= 0x0034	// Untested - needs client
+		Op_GetRegistrySize			= 0x0033,	// Done
+		Op_QueryByIdentifier		= 0x0034	// Done
 	} OpCode;
 
 	typedef enum _ResponseCode {
@@ -43,7 +50,8 @@ namespace LunaAPI {
 		Resp_OperationFailed	= 0xf008,
 
 		// "Virtual" codes, used by the client internally
-		Resp_Disconnect			= 0xff00,
+		Resp_Virtual			= 0xff00,
+		Resp_Disconnect			= 0xff01,
 	} ResponseCode;
 
 	typedef union _CommCode {

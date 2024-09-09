@@ -57,11 +57,11 @@ BOOL LJHandshakeServer(HANDLE hPipe) {
     return TRUE;
 }
 
-BOOL SendError(HANDLE hPipe, LunaAPI::ResponseCode code) {
+BOOL SendHeader(HANDLE hPipe, LunaAPI::ResponseCode code, size_t length) {
     DWORD bytesWritten = 0;
 
     LunaAPI::PacketHeader header;
-    header.length = 0;
+    header.length = length;
     header.code.response = code;
     BOOL success = WriteFile(hPipe, (LPCVOID)&header, sizeof(header), &bytesWritten, NULL);
     if (!success || sizeof(header) != bytesWritten) {
@@ -72,7 +72,7 @@ BOOL SendError(HANDLE hPipe, LunaAPI::ResponseCode code) {
     return FALSE;
 }
 
-BOOL SendData(HANDLE hPipe, LunaAPI::ResponseCode code, LPCVOID buffer, size_t length) {
+BOOL SendPacket(HANDLE hPipe, LunaAPI::ResponseCode code, LPCVOID buffer, size_t length) {
     DWORD bytesWritten = 0;
 
     LunaAPI::PacketHeader header;
@@ -85,6 +85,17 @@ BOOL SendData(HANDLE hPipe, LunaAPI::ResponseCode code, LPCVOID buffer, size_t l
         return TRUE;
     }
     success = WriteFile(hPipe, buffer, length, &bytesWritten, NULL);
+    if (!success || length != bytesWritten) {
+        WRITELINE_DEBUG("Could not write data to LunaJuice pipe: " << GetLastError());
+        return TRUE;
+    }
+    return FALSE;
+}
+
+BOOL SendData(HANDLE hPipe, LPCVOID buffer, size_t length) {
+    DWORD bytesWritten = 0;
+
+    BOOL success = WriteFile(hPipe, buffer, length, &bytesWritten, NULL);
     if (!success || length != bytesWritten) {
         WRITELINE_DEBUG("Could not write data to LunaJuice pipe: " << GetLastError());
         return TRUE;
@@ -108,14 +119,23 @@ BOOL WaitForCommand(HANDLE hPipe) {
         if (buffer == NULL) {
             // Return error
             WRITELINE_DEBUG("Could not allocate memory for RPC data buffer.");
-            return SendError(hPipe, LunaAPI::Resp_OutOfMemory);
+            return SendHeader(hPipe, LunaAPI::Resp_OutOfMemory);
         }
 
-        success = ReadFile(hPipe, buffer, header.length, &bytesRead, NULL);
-        if (!success || bytesRead == 0) {
-            free(buffer);
-            WRITELINE_DEBUG("Could not read additional data from LunaJuice pipe: " << GetLastError());
-            return TRUE;
+        // Loop until all data receieved
+        DWORD totalRead = 0;
+        while (totalRead < header.length) {
+            success = ReadFile(hPipe, (void*)((uint64_t)buffer + totalRead), header.length, &bytesRead, NULL);
+            if (!success) {
+                free(buffer);
+                WRITELINE_DEBUG("Could not read additional data from LunaJuice pipe: " << GetLastError());
+                return TRUE;
+            }
+            if (bytesRead == 0) {
+                break; // End of file
+                // This will probably be an error
+            }
+            totalRead += bytesRead;
         }
     }
     // Pass in handle and buffer to handler functions
@@ -181,7 +201,7 @@ BOOL WaitForCommand(HANDLE hPipe) {
         return ret;
     }
     // If not, it was an invalid command
-    return SendError(hPipe, LunaAPI::Resp_InvalidCommand);
+    return SendHeader(hPipe, LunaAPI::Resp_InvalidCommand);
 }
 
 // Client connection flow

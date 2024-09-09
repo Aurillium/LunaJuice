@@ -6,11 +6,11 @@
 
 #define REQUIRE_DATA(hPipe, buffer, length) if (buffer == NULL) { \
 	WRITELINE_DEBUG("Data was required for RPC call but none provided."); \
-	return SendError(hPipe, LunaAPI::Resp_InvalidRequest); \
+	return SendHeader(hPipe, LunaAPI::Resp_InvalidRequest); \
 }
 #define REQUIRE_LENGTH(hPipe, buffer, length, required) if (length < required) { \
 	WRITELINE_DEBUG("Data provided to RPC call must be at least " << required << " bytes. Was only " << length << "."); \
-	return SendError(hPipe, LunaAPI::Resp_InvalidRequest); \
+	return SendHeader(hPipe, LunaAPI::Resp_InvalidRequest); \
 }
 
 BOOL Handle_RegisterHook(HANDLE hPipe, LPVOID buffer, DWORD length);

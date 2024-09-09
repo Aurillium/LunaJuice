@@ -52,7 +52,7 @@ ResponseCode LunaImplant::Connect() {
         return Resp_Disconnect;
     }
 
-    BOOL connected = Handshake();
+    this->connected = Handshake() == Resp_Success;
 
     if (connected) {
         DISP_REMOTE("Completed handshake with LunaJuice.");
@@ -63,13 +63,24 @@ ResponseCode LunaImplant::Connect() {
 
     return Resp_Success;
 }
-
 void LunaImplant::Disconnect() {
     // It doesn't really matter if it goes through or not
     // the connection is about to close anyway
     SendPacket(this->hPipeRPC, Op_Disconnect, NULL, 0);
-    connected = FALSE;
+    this->connected = FALSE;
     CloseHandle(this->hPipeRPC);
+}
+BOOL LunaImplant::IsConnected() {
+    if (this->connected) {
+        if (this->hPipeRPC == NULL || this->hPipeRPC == INVALID_HANDLE_VALUE) {
+            this->connected = FALSE;
+        }
+        else {
+            return TRUE;
+        }
+    }
+    DISP_VERBOSE("IsConnected(): pipe is null = " << (this->hPipeRPC == NULL) << ", handle invalid = " << (this->hPipeRPC == INVALID_HANDLE_VALUE) << ", connected false = " << (this->connected == FALSE));
+    return FALSE;
 }
 
 ResponseCode LunaImplant::Handshake() {
@@ -218,11 +229,19 @@ ResponseCode LunaImplant::DelFunctionConfig(HookConfig config) {
     return header.code.response;
 }
 ResponseCode LunaImplant::SetFunctionState(HookID id, BOOL enabled) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_SetFunctionState, &enabled, sizeof(enabled));
+    DWORD bufferSize = sizeof(id) + sizeof(enabled);
+    void* buffer = malloc(bufferSize);
+    // Copy hook ID, followed by status
+    memcpy_s(buffer, sizeof(id), &id, sizeof(id));
+    memcpy_s((void*)((uint64_t)buffer + sizeof(id)), sizeof(enabled), &enabled, sizeof(enabled));
+
+    // Send the buffer
+    BOOL result = SendPacket(this->hPipeRPC, Op_SetFunctionState, buffer, bufferSize);
     if (!result) {
-        UPDATE_ERROR("Could not send data to LunaJuice to set function state");
+        UPDATE_ERROR("Could not send header to LunaJuice to set function state");
         return Resp_Disconnect;
     }
+    
     PacketHeader header;
     result = RecvHeader(this->hPipeRPC, &header);
     if (!result) {
@@ -325,7 +344,7 @@ ResponseCode LunaImplant::GetRegistrySize(HookID* size) {
 }
 //ResponseCode LunaImplant::GetFunctionIdentifier(HookID id, LPCSTR* answer, size_t* length);
 ResponseCode LunaImplant::QueryByIdentifier(LPCSTR id, HookID* answer) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_GetDefaultPolicy, id, strlen(id));
+    BOOL result = SendPacket(this->hPipeRPC, Op_QueryByIdentifier, id, strlen(id));
     if (!result) {
         UPDATE_ERROR("Could not send data to LunaJuice to get function identifier");
         return Resp_Disconnect;
@@ -349,8 +368,8 @@ ResponseCode LunaImplant::QueryByIdentifier(LPCSTR id, HookID* answer) {
     return Resp_Success;
 }
 
-ResponseCode LunaImplant::GetFunctionInfo(HookID id, HookConfig* config) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_GetDefaultPolicy, &id, sizeof(id));
+ResponseCode LunaImplant::GetFunctionInfo(HookID id, HookConfig* config, BOOL* enabled) {
+    BOOL result = SendPacket(this->hPipeRPC, Op_GetFunctionInfo, &id, sizeof(id));
     if (!result) {
         UPDATE_ERROR("Could not send data to LunaJuice to get function info");
         return Resp_Disconnect;
@@ -365,18 +384,28 @@ ResponseCode LunaImplant::GetFunctionInfo(HookID id, HookConfig* config) {
         DISP_ERROR("Could not get function data");
         return header.code.response;
     }
+    if (header.length != sizeof(*config) + sizeof(*enabled)) {
+        DISP_ERROR("Packet was wrong length for function info");
+        return Resp_Disconnect;
+    }
 
+    // Receive config then state
     result = RecvFixedData(this->hPipeRPC, config, sizeof(*config));
     if (!result) {
         UPDATE_ERROR("Could not receieve function data from LunaJuice");
         return Resp_Disconnect;
     }
+    result = RecvFixedData(this->hPipeRPC, enabled, sizeof(*enabled));
+    if (!result) {
+        UPDATE_ERROR("Could not receieve function state from LunaJuice");
+        return Resp_Disconnect;
+    }
     return Resp_Success;
 }
-ResponseCode LunaImplant::GetFunctionInfo(LPCSTR id, HookConfig* config) {
+ResponseCode LunaImplant::GetFunctionInfo(LPCSTR id, HookConfig* config, BOOL* enabled) {
     auto entry = this->registry.find(id);
     if (entry == this->registry.end()) {
         return Resp_NotFound;
     }
-    return this->GetFunctionInfo(entry->second, config);
+    return this->GetFunctionInfo(entry->second, config, enabled);
 }

@@ -39,9 +39,9 @@ namespace LunaAPI {
     } LogFlags;
     typedef enum _SecuritySettings {
         // 2 bits
-        BlockSimilar = 1,   // Block similar DLLs to LunaLib from loading (hash, name)
-        BlockUnsigned = 2,  // Block all unsigned DLLs (and signed LunaLib) from loading
-        BlockAll = 3        // Block all DLL loading
+        Sec_BlockSimilar = 1,   // Block similar DLLs to LunaLib from loading (hash, name)
+        Sec_BlockUnsigned = 2,  // Block all unsigned DLLs (and signed LunaLib) from loading
+        Sec_BlockAll = 3        // Block all DLL loading
     } SecuritySettings;
 
     // OR and AND operations for flags
@@ -50,12 +50,6 @@ namespace LunaAPI {
     }
     inline LogFlags operator|(const LogFlags a, const LogFlags b) {
         return (LogFlags)((unsigned int)a | (unsigned int)b);
-    }
-    inline MitigationFlags operator&(const MitigationFlags a, const MitigationFlags b) {
-        return (MitigationFlags)((unsigned int)a & (unsigned int)b);
-    }
-    inline LogFlags operator&(const LogFlags a, const LogFlags b) {
-        return (LogFlags)((unsigned int)a & (unsigned int)b);
     }
 
     // Used to find the config function
@@ -90,7 +84,28 @@ namespace LunaAPI {
 
     const MitigationFlags DEFAULT_MITIGATIONS = Mitigate_None;
     const LogFlags DEFAULT_LOGS = Log_All;
-    const SecuritySettings DEFAULT_SECURITY = BlockSimilar;
+    const SecuritySettings DEFAULT_SECURITY = Sec_BlockSimilar;
+
+    // This is technically a destructor, but this is also technically an int
+    // Choose your technicality
+    inline MitigationFlags operator~(const MitigationFlags a) {
+        return (MitigationFlags)(~(unsigned int)a);
+    }
+    inline LogFlags operator~(const LogFlags a) {
+        return (LogFlags)(~(unsigned int)a);
+    }
+    inline MitigationFlags operator&(const MitigationFlags a, const MitigationFlags b) {
+        return (MitigationFlags)((unsigned int)a & (unsigned int)b);
+    }
+    inline LogFlags operator&(const LogFlags a, const LogFlags b) {
+        return (LogFlags)((unsigned int)a & (unsigned int)b);
+    }
+    inline MitigationFlags operator^(const MitigationFlags a, const MitigationFlags b) {
+        return (MitigationFlags)((unsigned int)a ^ (unsigned int)b);
+    }
+    inline LogFlags operator^(const LogFlags a, const LogFlags b) {
+        return (LogFlags)((unsigned int)a ^ (unsigned int)b);
+    }
 
     static MitigationFlags& operator |=(MitigationFlags& a, MitigationFlags b) {
         a = a | b;
@@ -99,12 +114,6 @@ namespace LunaAPI {
     static LogFlags& operator |=(LogFlags& a, LogFlags b) {
         a = a | b;
         return a;
-    }
-    inline MitigationFlags operator!(const MitigationFlags a) {
-        return (MitigationFlags)(!(unsigned int)a);
-    }
-    inline LogFlags operator!(const LogFlags a) {
-        return (LogFlags)(!(unsigned int)a);
     }
     static MitigationFlags& operator &=(MitigationFlags& a, MitigationFlags b) {
         a = a & b;

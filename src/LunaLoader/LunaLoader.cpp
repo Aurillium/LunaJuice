@@ -509,6 +509,9 @@ int main(int argc, char* argv[])
         LunaAPI::LunaImplant implant = LunaAPI::LunaImplant(arguments.name);
 
         if (TestRPC(implant)) {
+            // This is failing saying invalid handle
+            // Server also fails saying it can't read from pipe
+            // Pipe is likely being broken either here or the return of the last function, unsure why
             implant.Disconnect();
             DISP_SUCCESS("RPC test succeeded!");
             return 0;

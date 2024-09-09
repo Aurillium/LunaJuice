@@ -114,10 +114,20 @@ template<typename Ret, typename... Args> BOOL LunaHook<Ret(*)(Args...)>::GetStat
     return hook->isHooked();
 }
 template<typename Ret, typename... Args> BOOL LunaHook<Ret(*)(Args...)>::Enable() const {
-    return hook->hook();
+    if (!this->hook->isHooked()) {
+        WRITELINE_DEBUG("Hooking...");
+        return hook->hook();
+    }
+    WRITELINE_DEBUG("Already hooked!");
+    return TRUE;
 }
 template<typename Ret, typename... Args> BOOL LunaHook<Ret(*)(Args...)>::Disable() const {
-    return hook->unHook();
+    if (this->hook->isHooked()) {
+        WRITELINE_DEBUG("Unhooking...");
+        return hook->unHook();
+    }
+    WRITELINE_DEBUG("Already hooked!");
+    return TRUE;
 }
 
 template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>* LunaHook<Ret(*)(Args...)>::GetGlobalHook(LPCSTR identifier) {
@@ -172,6 +182,8 @@ template<typename Ret, typename... Args> LunaAPI::HookID LunaHook<Ret(*)(Args...
 
     // Add to registry
     REGISTRY[identifier] = id;
+
+    WRITELINE_DEBUG("New hook registered! " << identifier << " = " << id << ", miti: " << HOOK_STORAGE[id]->mitigations << ", log: " << HOOK_STORAGE[id]->logEvents);
 
     return id;
 }
