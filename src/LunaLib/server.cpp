@@ -235,6 +235,10 @@ cleanup:
 }
 
 BOOL BeginServer(LPVOID lpParam) {
+    if (lpParam == NULL) {
+        // We don't have an ID to set up the server
+        return FALSE;
+    }
     char* id = (char*)lpParam;
     // The stub is 10 chars long (incl null byte), then ID is 24 (excl null byte)
     char pipeName[LUNA_MAX_ID_LENGTH + 10] = "\\\\.\\pipe\\";

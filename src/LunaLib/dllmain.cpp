@@ -24,46 +24,77 @@
 static HANDLE hMapFile;
 static LPVOID lpMemFile;
 
-typedef PyObject* (*PyObject_Call_t)(PyObject* callable, PyObject* args, PyObject* kwargs);
-NOINLINE PyObject* Hooked_PyObject_Call(PyObject* callable, PyObject* args, PyObject* kwargs) {
-    static PyObject_Call_t Real_PyObject_Call = (PyObject_Call_t)GetRealFunction("python312.dll!PyObject_Call");
+static int set_tracer_scheduled(void* param) {
+    // Acquire the GIL before making any Python C API calls
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
 
-    PyTypeObject* type = callable->ob_type;
-    WRITELINE_DEBUG(type->tp_name);
-    WRITELINE_DEBUG(Real_PyObject_Call);
-    return PyObject_Call(callable, args, kwargs);
-}
+    const char* target_name = "test_function";
+    const char* hook_name = "hook_function";
 
-typedef PyObject* (*PyEval_EvalFrame_t)(PyFrameObject* frame);
-NOINLINE PyObject* Hooked_PyEval_EvalFrame(PyFrameObject* frame) {
-    static PyEval_EvalFrame_t Real_PyEval_EvalFrame = (PyEval_EvalFrame_t)GetRealFunction("python312.dll!PyEval_EvalFrame");
+    PyObject* globals = PyEval_GetGlobals();
+    PyObject* hook = PyDict_GetItemString(globals, hook_name);
+    if (hook == NULL) {
+        WRITE_DEBUG("Could not find hook function.");
+        return 0;
+    }
+    if (!PyFunction_Check(hook)) {
+        WRITE_DEBUG("Target object was invalid.");
+        return 0;
+    }
 
-    return PyEval_EvalFrame(frame);
+    // Hook a function
+    PyObject* target = PyDict_GetItemString(globals, target_name);
+    if (target == NULL) {
+        WRITE_DEBUG("Could not find target function.");
+        return 0;
+    }
+    if (!PyFunction_Check(target)) {
+        WRITE_DEBUG("Target object was invalid.");
+        return 0;
+    }
+    // Save the old code
+    PyObject* old_code = ((PyFunctionObject*)target)->func_code;
+    PyObject* new_code = ((PyFunctionObject*)hook)->func_code;
+    // Replace with new code
+    ((PyFunctionObject*)target)->func_code = new_code;
+    
+    // Do we need this? Probably
+    // Linker can't find it though
+    //Py_INCREF(new_code);
+
+    // Release the GIL
+    PyGILState_Release(gstate);
+
+    return 0; // Py_AddPendingCall requires the return value to be 0
 }
 
 void PyHook() {
     // This works
-    Py_Initialize();
-    PyRun_SimpleString("print('Hello, world!')");
+    //Py_Initialize();
+    WRITELINE_DEBUG("About to init");
+    if (!Py_IsInitialized()) {
+        Py_Initialize();
+        // Happens on a new process
+        WRITELINE_DEBUG("Did it");
+    }
+    else {
+        // Happens on process that exists
+        WRITELINE_DEBUG("already done");
+    }
+    WRITELINE_DEBUG("About to lock");
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    WRITELINE_DEBUG("About to run");
 
-    // This causes a crash
-    WRITELINE_DEBUG(GetRealFunction("python312.dll!PyObject_Call"));
-    AddHookedFunction("python312.dll!PyObject_Call", Hooked_PyEval_EvalFrame);
-    AddHookedFunction("python312.dll!PyEval_EvalFrame", Hooked_PyObject_Call);
-    LunaAPI::HookID id = LunaHook<AnyFunction>::Register("python312.dll!PyObject_Call", GetHookFunction("python312.dll!PyObject_Call"), LunaAPI::Mitigate_None, LunaAPI::Log_All);
-    if (id != LunaAPI::MAX_HOOKID) {
-        WRITELINE_DEBUG("Successfully hooked!" << id);
+    //PyEval_SetTrace(trace, NULL);
+    if (Py_AddPendingCall(set_tracer_scheduled, NULL) != 0) {
+        printf("Failed to schedule tracer setup\n");
     }
-    else {
-        WRITELINE_DEBUG("No success today ;-;");
-    }
-    //id = LunaHook<AnyFunction>::Register("python312.dll!PyEval_EvalFrame", GetHookFunction("python312.dll!PyEval_EvalFrame"), LunaAPI::Mitigate_None, LunaAPI::Log_All);
-    if (id != LunaAPI::MAX_HOOKID) {
-        WRITELINE_DEBUG("Successfully hooked!" << id);
-    }
-    else {
-        WRITELINE_DEBUG("No success today ;-;");
-    }
+    WRITELINE_DEBUG("Run trcaer");
+
+    PyGILState_Release(gstate);
+    WRITELINE_DEBUG("unlocked");
+
 }
 
 // Install the hooks
@@ -95,6 +126,7 @@ BOOL CloseShare() {
     return FALSE;
 }
 
+// This is called by the host
 BOOL LoadConfig(LunaAPI::LunaStart config) {
     // Connect to named mutex for further communication
 
@@ -176,11 +208,16 @@ __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for
         if (!InitShare(hModule)) {
             WRITELINE_DEBUG("Could not set up shared memory.");
         }
-        WRITELINE_DEBUG("Initialised share memory!");
+        else {
+            WRITELINE_DEBUG("Initialised share memory!");
+        }
+
         if (!OpenLogger()) {
             WRITELINE_DEBUG("Could not open logger.");
         }
-        WRITELINE_DEBUG("Started logger!");
+        else {
+            WRITELINE_DEBUG("Started logger!");
+        }
 
         break;
     case DLL_THREAD_ATTACH:
