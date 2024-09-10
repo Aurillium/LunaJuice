@@ -9,6 +9,7 @@
 #include "arguments.h"
 #include "output.h"
 #include "resource.h"
+#include "test.h"
 #include "util.h"
 
 #include "Config.h"
@@ -496,7 +497,32 @@ int main(int argc, char* argv[])
 
         return 0;
 
-    } else {
+    }
+    else if (arguments.testMode) {
+        verboseEnabled = TRUE;
+        // Test RPC flow
+
+        if (arguments.name[0] == 0) {
+            DISP_ERROR("Expected an implant ID. Specify this with /i:<value>");
+            return 1;
+        }
+        LunaAPI::LunaImplant implant = LunaAPI::LunaImplant(arguments.name);
+
+        if (TestRPC(implant)) {
+            // This is failing saying invalid handle
+            // Server also fails saying it can't read from pipe
+            // Pipe is likely being broken either here or the return of the last function, unsure why
+            implant.Disconnect();
+            DISP_SUCCESS("RPC test succeeded!");
+            return 0;
+        }
+        else {
+            implant.Disconnect();
+            DISP_ERROR("RPC test failed");
+            return 1;
+        }
+    } 
+    else {
         // Injection flow
         HANDLE hProcess;
 

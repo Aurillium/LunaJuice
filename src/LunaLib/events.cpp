@@ -48,8 +48,8 @@ static BOOL PopulateDetailFields() {
 	PPID_INT = ppid;
 
 	// This should always run before hooking
-#if _DEBUG
 	static OpenProcess_t RealOpenProcess = (OpenProcess_t)GetRealFunction("kernel32.dll!OpenProcess");
+#if _DEBUG
 	if (RealOpenProcess == NULL) {
 		WRITELINE_DEBUG("OpenProcess function could not be found. This indicates a bug in LunaJuice.");
 		return FALSE;

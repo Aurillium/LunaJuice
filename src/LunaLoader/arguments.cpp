@@ -267,6 +267,14 @@ void ParseArg(int* index, int argc, char* argv[], char eq, LUNA_ARGUMENTS* args)
 		LPCSTR processName = ParseString(valueBuffer);
 		args->pid = FindPidByName(processName);
 	}
+#if _DEBUG
+	else if (
+		NoCapCmp(current, "test", nameLength)
+		) {
+		DISP_LOG("Testing mode is enabled. Verbose will be turned on.");
+		args->testMode = ParseBool(valueBuffer);
+	}
+#endif
 	else {
 		// Quick hack to display only the name
 		// This is safe because we don't use it later; no info lost
@@ -311,7 +319,12 @@ void DisplayUsage() {
 		"/p, /pid:pid                     Process ID of target." << std::endl <<
 		"/n, /name:process_name           Find target by process name (less accurate)." << std::endl <<
 		"/i, /implant:implant_name        Implant name to connect with (<=" << LUNA_MAX_ID_LENGTH << " chars)." << std::endl <<
-		"" << std::endl <<
+#if _DEBUG
+		"                                 " << std::endl <<
+		"Testing:                         " << std::endl <<
+		"/test                            Enable RPC testing mode (enables verbose)." << std::endl <<
+#endif
+		"                                 " << std::endl <<
 		"If one argument fails to parse, the next equivalent argument with the same name will be taken instead." << std::endl <<
 		"More information available on the GitHub wiki: https://github.com/Aurillium/LunaJuice/wiki" << std::endl <<
 	std::endl;

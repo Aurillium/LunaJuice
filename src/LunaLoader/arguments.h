@@ -17,6 +17,8 @@ typedef struct _LUNA_ARGUMENTS {
 	BOOL help = FALSE;
 	BOOL rpc = FALSE;
 	DWORD pid = 0;
+
+	BOOL testMode = FALSE;
 } LUNA_ARGUMENTS;
 
 LUNA_ARGUMENTS GetArguments(int argc, char* argv[]);

@@ -71,8 +71,6 @@ void* GetFunctionAddress(IN LPCSTR moduleName, IN LPCSTR functionName);
 extern std::vector<LunaHook<AnyFunction>*> HOOK_STORAGE;
 extern LunaAPI::HookRegistry REGISTRY;
 extern std::map<std::string, void*> HOOK_LOCATIONS;
-extern LunaAPI::MitigationFlags DEFAULT_MITIGATIONS;
-extern LunaAPI::LogFlags DEFAULT_LOGS;
 
 // Run callbacks
 template<typename Ret, typename... Args> Ret LunaHook<Ret(*)(Args...)>::Callbacks(Args... args) const {
@@ -87,25 +85,25 @@ template<typename Ret, typename... Args> Ret LunaHook<Ret(*)(Args...)>::Callback
 }
 
 template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>::LunaHook(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LPCSTR sig) {
-    registerSuccess = FALSE;
-    signature = sig;
+    this->registerSuccess = FALSE;
+    this->signature = sig;
 
     void* originalAddress = GetFunctionAddress(moduleName, functionName);
     if (originalAddress == NULL) {
         WRITELINE_DEBUG("Could not find " << moduleName << "!" << functionName << ", will not be able to hook.");
         return;
     }
-    hook = new PLH::NatDetour((uint64_t)originalAddress, (uint64_t)hookAddress, (uint64_t*)&this->trampoline);
-    if (hook == NULL) {
+    this->hook = new PLH::NatDetour((uint64_t)originalAddress, (uint64_t)hookAddress, (uint64_t*)&this->trampoline);
+    if (this->hook == NULL) {
         WRITELINE_DEBUG("Could not create LunaHook for " << moduleName << "!" << functionName << ".");
         return;
     }
-    mitigations = mitigate;
-    logEvents = log;
+    this->mitigations = mitigate;
+    this->logEvents = log;
 
-    hook->hook();
+    this->hook->hook();
 
-    registerSuccess = TRUE;
+    this->registerSuccess = TRUE;
     WRITELINE_DEBUG("Successfully hooked '" << functionName << "' of '" << moduleName << "'!");
 }
 template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>::~LunaHook() {
@@ -116,10 +114,20 @@ template<typename Ret, typename... Args> BOOL LunaHook<Ret(*)(Args...)>::GetStat
     return hook->isHooked();
 }
 template<typename Ret, typename... Args> BOOL LunaHook<Ret(*)(Args...)>::Enable() const {
-    return hook->hook();
+    if (!this->hook->isHooked()) {
+        WRITELINE_DEBUG("Hooking...");
+        return hook->hook();
+    }
+    WRITELINE_DEBUG("Already hooked!");
+    return TRUE;
 }
 template<typename Ret, typename... Args> BOOL LunaHook<Ret(*)(Args...)>::Disable() const {
-    return hook->unHook();
+    if (this->hook->isHooked()) {
+        WRITELINE_DEBUG("Unhooking...");
+        return hook->unHook();
+    }
+    WRITELINE_DEBUG("Already hooked!");
+    return TRUE;
 }
 
 template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>* LunaHook<Ret(*)(Args...)>::GetGlobalHook(LPCSTR identifier) {
@@ -174,6 +182,8 @@ template<typename Ret, typename... Args> LunaAPI::HookID LunaHook<Ret(*)(Args...
 
     // Add to registry
     REGISTRY[identifier] = id;
+
+    WRITELINE_DEBUG("New hook registered! " << identifier << " = " << id << ", miti: " << HOOK_STORAGE[id]->mitigations << ", log: " << HOOK_STORAGE[id]->logEvents);
 
     return id;
 }

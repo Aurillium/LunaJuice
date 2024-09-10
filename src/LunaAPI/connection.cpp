@@ -7,16 +7,35 @@
 
 using namespace LunaAPI;
 
+BOOL ReadLengthIntoBuffer(HANDLE hPipe, LPVOID buffer, size_t length) {
+    // Loop until all data receieved
+    DWORD totalRead = 0;
+    while (totalRead < length) {
+        DWORD bytesRead = 0;
+        BOOL success = ReadFile(hPipe, (void*)((uint64_t)buffer + totalRead), length, &bytesRead, NULL);
+        if (!success) {
+            DISP_ERROR("Could not read additional data from LunaJuice pipe: " << GetLastError());
+            return FALSE;
+        }
+        if (bytesRead == 0) {
+            DISP_WARN("Unexpected end of file");
+            break; // End of file
+            // This will probably be an error
+        }
+        totalRead += bytesRead;
+    }
+    return totalRead == length;
+}
+
 BOOL SendPacket(HANDLE hPipe, OpCode code, LPCVOID buffer, size_t length) {
     DWORD bytesWritten = 0;
 
     PacketHeader header;
     header.length = length;
     header.code.opcode = code;
-    BOOL success = WriteFile(hPipe, (LPCVOID)&header, sizeof(header), &bytesWritten, NULL);
+    BOOL success = WriteFile(hPipe, &header, sizeof(header), &bytesWritten, NULL);
     if (!success || bytesWritten != sizeof(header)) {
-        
-        DISP_WINERROR("Could not write response code to LunaJuice implant server");
+        DISP_WINERROR("Could not write opcode to LunaJuice implant server");
         return FALSE;
     }
     if (length) {
@@ -30,10 +49,8 @@ BOOL SendPacket(HANDLE hPipe, OpCode code, LPCVOID buffer, size_t length) {
 }
 
 BOOL RecvPacket(HANDLE hPipe, PacketHeader* header, LPVOID* buffer) {
-    DWORD bytesRead = 0;
-
-    BOOL success = ReadFile(hPipe, header, sizeof(LunaAPI::PacketHeader), &bytesRead, NULL);
-    if (!success || bytesRead != sizeof(*header)) {
+    BOOL success = ReadLengthIntoBuffer(hPipe, header, sizeof(*header));
+    if (!success) {
         DISP_WINERROR("Could not read response code from LunaJuice implant server");
         return FALSE;
     }
@@ -48,8 +65,8 @@ BOOL RecvPacket(HANDLE hPipe, PacketHeader* header, LPVOID* buffer) {
             return FALSE;
         }
 
-        success = ReadFile(hPipe, *buffer, header->length, &bytesRead, NULL);
-        if (!success || bytesRead != header->length) {
+        success = ReadLengthIntoBuffer(hPipe, *buffer, header->length);
+        if (!success) {
             free(*buffer);
             *buffer = NULL;
             DISP_WINERROR("Could not read response data from LunaJuice implant server");
@@ -60,10 +77,8 @@ BOOL RecvPacket(HANDLE hPipe, PacketHeader* header, LPVOID* buffer) {
 }
 
 BOOL RecvFixedPacket(HANDLE hPipe, PacketHeader* header, LPVOID buffer, size_t length) {
-    DWORD bytesRead = 0;
-
-    BOOL success = ReadFile(hPipe, header, sizeof(LunaAPI::PacketHeader), &bytesRead, NULL);
-    if (!success || bytesRead != sizeof(*header)) {
+    BOOL success = ReadLengthIntoBuffer(hPipe, header, sizeof(*header));
+    if (!success) {
         DISP_WINERROR("Could not read response code from LunaJuice implant server");
         return FALSE;
     }
@@ -73,8 +88,8 @@ BOOL RecvFixedPacket(HANDLE hPipe, PacketHeader* header, LPVOID buffer, size_t l
         return FALSE;
     }
     if (header->length) {
-        success = ReadFile(hPipe, buffer, header->length, &bytesRead, NULL);
-        if (!success || bytesRead != header->length) {
+        success = ReadLengthIntoBuffer(hPipe, buffer, header->length);
+        if (!success) {
             DISP_WINERROR("Could not read response data from LunaJuice implant server");
             return FALSE;
         }
@@ -83,20 +98,16 @@ BOOL RecvFixedPacket(HANDLE hPipe, PacketHeader* header, LPVOID buffer, size_t l
 }
 
 BOOL RecvHeader(HANDLE hPipe, PacketHeader* header) {
-    DWORD bytesRead = 0;
-
-    BOOL success = ReadFile(hPipe, header, sizeof(LunaAPI::PacketHeader), &bytesRead, NULL);
-    if (!success || bytesRead != sizeof(*header)) {
+    BOOL success = ReadLengthIntoBuffer(hPipe, header, sizeof(*header));
+    if (!success) {
         DISP_WINERROR("Could not read response code from LunaJuice implant server");
         return FALSE;
     }
     return TRUE;
 }
 BOOL RecvFixedData(HANDLE hPipe, LPVOID buffer, size_t length) {
-    DWORD bytesRead = 0;
-
-    BOOL success = ReadFile(hPipe, buffer, length, &bytesRead, NULL);
-    if (!success || bytesRead != length) {
+    BOOL success = ReadLengthIntoBuffer(hPipe, buffer, length);
+    if (!success) {
         DISP_WINERROR("Could not read data from LunaJuice implant server");
         return FALSE;
     }
