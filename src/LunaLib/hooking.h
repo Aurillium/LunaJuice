@@ -28,6 +28,11 @@ NOINLINE ret calltype Hooked_##name##sig
 
 using AnyFunction = std::any(*)(std::any);
 
+enum HookType {
+    Type_Native,
+    Type_Python
+};
+
 template<class> class LunaHook;
 template<typename Ret, typename... Args> class LunaHook<Ret(*)(Args...)> {
 private:
@@ -68,9 +73,13 @@ void* GetFunctionAddress(IN LPCSTR moduleName, IN LPCSTR functionName);
 
 // Template definitions
 
-extern std::vector<LunaHook<AnyFunction>*> HOOK_STORAGE;
+extern std::vector<std::pair<HookType, void*>> HOOK_STORAGE;
 extern LunaAPI::HookRegistry REGISTRY;
 extern std::map<std::string, void*> HOOK_LOCATIONS;
+
+extern std::mutex HOOKS_MUTEX;
+extern std::mutex REGISTRY_MUTEX;
+extern std::mutex NATIVE_HOOKS_MUTEX;
 
 // Run callbacks
 template<typename Ret, typename... Args> Ret LunaHook<Ret(*)(Args...)>::Callbacks(Args... args) const {
@@ -130,11 +139,12 @@ template<typename Ret, typename... Args> BOOL LunaHook<Ret(*)(Args...)>::Disable
     return TRUE;
 }
 
+// Should these functions check for errors?
 template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>* LunaHook<Ret(*)(Args...)>::GetGlobalHook(LPCSTR identifier) {
-    return (LunaHook<Ret(*)(Args...)>*)HOOK_STORAGE[REGISTRY[identifier]];
+    return (LunaHook<Ret(*)(Args...)>*)HOOK_STORAGE[REGISTRY[identifier]].second;
 }
 template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>* LunaHook<Ret(*)(Args...)>::GetGlobalHook(LunaAPI::HookID key) {
-    return (LunaHook<Ret(*)(Args...)>*)HOOK_STORAGE[key];
+    return (LunaHook<Ret(*)(Args...)>*)HOOK_STORAGE[key].second;
 }
 
 template<typename Ret, typename... Args> LunaAPI::HookID LunaHook<Ret(*)(Args...)>::Register(LPCSTR identifier, void* hookAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LunaHook** hook) {
@@ -178,12 +188,12 @@ template<typename Ret, typename... Args> LunaAPI::HookID LunaHook<Ret(*)(Args...
         *hook = newHook;
     }
     LunaAPI::HookID id = HOOK_STORAGE.size();
-    HOOK_STORAGE.push_back(newHook);
+    HOOK_STORAGE.push_back(std::pair(Type_Native, newHook));
 
     // Add to registry
     REGISTRY[identifier] = id;
 
-    WRITELINE_DEBUG("New hook registered! " << identifier << " = " << id << ", miti: " << HOOK_STORAGE[id]->mitigations << ", log: " << HOOK_STORAGE[id]->logEvents);
+    WRITELINE_DEBUG("New hook registered! " << identifier << " = " << id << ", miti: " << newHook->mitigations << ", log: " << newHook->logEvents);
 
     return id;
 }

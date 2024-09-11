@@ -1,10 +1,15 @@
 #include "pch.h"
+#include <mutex>
+#include <vector>
 #include <Windows.h>
 
 #include "debug.h"
 #include "pyhooking.h"
 
 #include "include/python/Python.h"
+
+std::mutex PYTHON_HOOKS_MUTEX;
+std::vector<LunaPyHook*> PYTHON_HOOKS = std::vector<LunaPyHook*>();
 
 void PySwizzleGIL(PyFunctionObject* target_func, PyFunctionObject* hook_func) {
     // Swizzle (this does not appear to be supported in the API)
@@ -64,20 +69,7 @@ BOOL PyHookGIL(PyObject* target, PyObject* hook) {
     PySwizzleGIL(target_func, hook_func);
     return TRUE;
 }
-// Do the same thing, but don't modify globals
-BOOL PyUnhookGIL(PyObject* target, PyObject* hook) {
-    if (!PyFunction_Check(hook)) {
-        WRITE_DEBUG("Hook object was invalid.");
-        return FALSE;
-    }
-    if (!PyFunction_Check(target)) {
-        WRITE_DEBUG("Target object was invalid.");
-        return FALSE;
-    }
 
-    PySwizzleGIL((PyFunctionObject*)target, (PyFunctionObject*)hook);
-    return TRUE;
-}
 PyObject* PyEvalGlobalGIL(const char* expr) {
     // Resolve target from __main__
     PyObject* main_module = PyImport_AddModule("__main__");
@@ -143,6 +135,28 @@ cleanup:
     SetEvent(setup->event);
     return 0; // Py_AddPendingCall requires the return value to be 0
 }
+int PyToggleHookThread(void* param) {
+    WRITELINE_DEBUG("In hook thread.");
+    // Get parameters
+    PyHookSetupData* setup = (PyHookSetupData*)param;
+    setup->success = FALSE;
+
+    // Acquire the GIL before making any Python C API calls
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+    WRITELINE_DEBUG("Got GIL.");
+
+    PySwizzleGIL(setup->target, setup->hook);
+
+    setup->success = TRUE;
+cleanup:
+    // Release the GIL
+    PyGILState_Release(gstate);
+    WRITELINE_DEBUG("Released GIL.");
+    WRITELINE_DEBUG("Passing back to main...");
+    SetEvent(setup->event);
+    return 0; // Py_AddPendingCall requires the return value to be 0
+}
 
 BOOL PySetupHook(const char* code, const char* name, const char* target, PyFunctionObject** hook_func, PyFunctionObject** target_func) {
     PyHookSetupData setup = PyHookSetupData();
@@ -161,4 +175,70 @@ BOOL PySetupHook(const char* code, const char* name, const char* target, PyFunct
     WaitForSingleObject(setup.event, INFINITE);
     CloseHandle(setup.event);
     return setup.success;
+}
+BOOL PyToggleHook(PyFunctionObject* hook, PyFunctionObject* target) {
+    PyUnhookData setup = PyUnhookData();
+    setup.event = CreateEventA(NULL, FALSE, FALSE, NULL);
+    setup.hook = hook;
+    setup.target = target;
+    if (setup.event == NULL) {
+        WRITELINE_DEBUG("Could not create event to wait for.");
+        return FALSE;
+    }
+    if (Py_AddPendingCall(PyToggleHookThread, &setup) != 0) {
+        WRITELINE_DEBUG("Python execution failed.");
+    }
+    // Wait for swizzle to finish
+    WaitForSingleObject(setup.event, INFINITE);
+    CloseHandle(setup.event);
+    return setup.success;
+}
+
+
+LunaPyHook::LunaPyHook(const char* code, const char* name, const char* target, LunaAPI::LogFlags log) {
+    this->logEvents = log;
+    this->registerSuccess = PySetupHook(code, name, target, &this->hook, &this->target);
+}
+LunaAPI::HookID LunaPyHook::Register(const char* code, const char* name, const char* target, LunaAPI::LogFlags log, LunaPyHook** hook) {
+    LunaPyHook* newHook = new LunaPyHook(code, name, target, log);
+    if (!newHook->registerSuccess) {
+        // Clean up and exit
+        delete newHook;
+        // This should be a maximum int, as HookID is unsigned
+        return LunaAPI::MAX_HOOKID;
+    }
+    if (hook != NULL) {
+        *hook = newHook;
+    }
+    // TODO: finish me
+}
+
+BOOL LunaPyHook::GetStatus() {
+    return this->status;
+}
+BOOL LunaPyHook::Enable() {
+    if (this->status) {
+        return FALSE;
+    }
+    return PyToggleHook(this->hook, this->target);
+}
+BOOL LunaPyHook::Disable() {
+    if (!this->status) {
+        return FALSE;
+    }
+    return PyToggleHook(this->hook, this->target);
+}
+
+// These are not threadsafe, a mutex should be added
+PyFunctionObject* LunaPyHook::GetHook() {
+    return this->status ? this->hook : this->target;
+}
+PyFunctionObject* LunaPyHook::GetOriginal() {
+    return this->status ? this->target : this->hook;
+}
+
+LunaPyHook::~LunaPyHook() {
+    this->Disable();
+    Py_DECREF(this->hook);
+    Py_DECREF(this->target);
 }

@@ -48,6 +48,7 @@ namespace LunaAPI {
 		Resp_UnsupportedHook	= 0xf006,
 		Resp_NotFound			= 0xf007,
 		Resp_OperationFailed	= 0xf008,
+		Resp_WrongType			= 0xf009,
 
 		// "Virtual" codes, used by the client internally
 		Resp_Virtual			= 0xff00,

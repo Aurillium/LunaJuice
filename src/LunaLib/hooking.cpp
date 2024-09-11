@@ -2,6 +2,8 @@
 #include <any>
 #include <list>
 #include <map>
+#include <mutex>
+#include <tuple>
 #include <string>
 #include <Windows.h>
 
@@ -12,8 +14,14 @@
 #include <polyhook2/IHook.hpp>
 #include <polyhook2/Detour/NatDetour.hpp>
 
+std::mutex HOOKS_MUTEX;
+std::mutex REGISTRY_MUTEX;
+std::mutex NATIVE_HOOKS_MUTEX;
+
+std::vector<LunaHook<AnyFunction>*> NATIVE_HOOKS = std::vector<LunaHook<AnyFunction>*>();
+
 // Store hook instances
-std::vector<LunaHook<AnyFunction>*> HOOK_STORAGE = std::vector<LunaHook<AnyFunction>*>();
+std::vector<std::pair<HookType, void*>> HOOK_STORAGE = std::vector<std::pair<HookType, void*>>();
 LunaAPI::HookRegistry REGISTRY = LunaAPI::HookRegistry();
 // Register: add hook, return ID, send back to client, client records in own registry to address with later
 
@@ -139,7 +147,11 @@ void* GetRealFunction(LPCSTR key) {
     }
     else {
         // Get the trampoline location from registry
-        LunaHook<AnyFunction>* hook = HOOK_STORAGE[REGISTRY[key]];
+        std::pair<HookType, void*> pair = HOOK_STORAGE[REGISTRY[key]];
+        if (pair.first != Type_Native) {
+            return NULL;
+        }
+        LunaHook<AnyFunction>* hook = (LunaHook<AnyFunction>*)pair.second;
         return hook->trampoline;
     }
 }

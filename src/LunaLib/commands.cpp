@@ -76,7 +76,11 @@ BOOL Handle_SetFunctionConfig(HANDLE hPipe, LPVOID buffer, DWORD length) {
 	}
 
 	// = new
-	LunaHook<AnyFunction>* hook = HOOK_STORAGE[config.hook];
+	std::pair<HookType, void*> pair = HOOK_STORAGE[config.hook];
+	if (pair.first != Type_Native) {
+		return SendHeader(hPipe, LunaAPI::Resp_WrongType);
+	}
+	LunaHook<AnyFunction>* hook = (LunaHook<AnyFunction>*)pair.second;
 	hook->mitigations = config.mitigations;
 	hook->logEvents = config.logs;
 
@@ -93,7 +97,11 @@ BOOL Handle_AddFunctionConfig(HANDLE hPipe, LPVOID buffer, DWORD length) {
 	}
 
 	// = new | current
-	LunaHook<AnyFunction>* hook = HOOK_STORAGE[config.hook];
+	std::pair<HookType, void*> pair = HOOK_STORAGE[config.hook];
+	if (pair.first != Type_Native) {
+		return SendHeader(hPipe, LunaAPI::Resp_WrongType);
+	}
+	LunaHook<AnyFunction>* hook = (LunaHook<AnyFunction>*)pair.second;
 	hook->mitigations |= config.mitigations;
 	hook->logEvents |= config.logs;
 
@@ -110,7 +118,11 @@ BOOL Handle_DelFunctionConfig(HANDLE hPipe, LPVOID buffer, DWORD length) {
 	}
 
 	// = current & !new
-	LunaHook<AnyFunction>* hook = HOOK_STORAGE[config.hook];
+	std::pair<HookType, void*> pair = HOOK_STORAGE[config.hook];
+	if (pair.first != Type_Native) {
+		return SendHeader(hPipe, LunaAPI::Resp_WrongType);
+	}
+	LunaHook<AnyFunction>* hook = (LunaHook<AnyFunction>*)pair.second;
 	hook->mitigations &= ~config.mitigations;
 	hook->logEvents &= ~config.logs;
 
@@ -128,7 +140,11 @@ BOOL Handle_SetFunctionState(HANDLE hPipe, LPVOID buffer, DWORD length) {
 	// Should be the memory directly after hook ID
 	BOOL enabled = *(BOOL*)( (uint64_t)buffer + sizeof(LunaAPI::HookID) );
 
-	LunaHook<AnyFunction>* hook = HOOK_STORAGE[id];
+	std::pair<HookType, void*> pair = HOOK_STORAGE[id];
+	if (pair.first != Type_Native) {
+		return SendHeader(hPipe, LunaAPI::Resp_WrongType);
+	}
+	LunaHook<AnyFunction>* hook = (LunaHook<AnyFunction>*)pair.second;
 	// Enable if that's the choice, or disable
 	BOOL success = enabled ? hook->Enable() : hook->Disable();
 	// Return whether it succeeded or failed
@@ -166,10 +182,15 @@ BOOL Handle_GetFunctionInfo(HANDLE hPipe, LPVOID buffer, DWORD length) {
 	}
 
 	LunaAPI::HookConfig config = LunaAPI::HookConfig();
+	std::pair<HookType, void*> pair = HOOK_STORAGE[id];
+	if (pair.first != Type_Native) {
+		return SendHeader(hPipe, LunaAPI::Resp_WrongType);
+	}
+	LunaHook<AnyFunction>* hook = (LunaHook<AnyFunction>*)pair.second;
 	config.hook = id;
-	config.mitigations = HOOK_STORAGE[id]->mitigations;
-	config.logs = HOOK_STORAGE[id]->logEvents;
-	BOOL status = HOOK_STORAGE[id]->GetStatus();
+	config.mitigations = hook->mitigations;
+	config.logs = hook->logEvents;
+	BOOL status = hook->GetStatus();
 	BOOL failed = SendHeader(hPipe, LunaAPI::Resp_Success, sizeof(config) + sizeof(BOOL));
 	if (failed) return TRUE;
 	failed = SendData(hPipe, &config, sizeof(config));
