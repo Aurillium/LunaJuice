@@ -10,6 +10,7 @@
 #include "events.h"
 #include "hooks.h"
 #include "mitigations.h"
+#include "pyhooking.h"
 #include "server.h"
 
 #include "shared_util.h"
@@ -24,51 +25,6 @@
 static HANDLE hMapFile;
 static LPVOID lpMemFile;
 
-static int set_tracer_scheduled(void* param) {
-    // Acquire the GIL before making any Python C API calls
-    PyGILState_STATE gstate;
-    gstate = PyGILState_Ensure();
-
-    const char* target_name = "test_function";
-    const char* hook_name = "hook_function";
-
-    PyObject* globals = PyEval_GetGlobals();
-    PyObject* hook = PyDict_GetItemString(globals, hook_name);
-    if (hook == NULL) {
-        WRITE_DEBUG("Could not find hook function.");
-        return 0;
-    }
-    if (!PyFunction_Check(hook)) {
-        WRITE_DEBUG("Target object was invalid.");
-        return 0;
-    }
-
-    // Hook a function
-    PyObject* target = PyDict_GetItemString(globals, target_name);
-    if (target == NULL) {
-        WRITE_DEBUG("Could not find target function.");
-        return 0;
-    }
-    if (!PyFunction_Check(target)) {
-        WRITE_DEBUG("Target object was invalid.");
-        return 0;
-    }
-    // Save the old code
-    PyObject* old_code = ((PyFunctionObject*)target)->func_code;
-    PyObject* new_code = ((PyFunctionObject*)hook)->func_code;
-    // Replace with new code
-    ((PyFunctionObject*)target)->func_code = new_code;
-    
-    // Do we need this? Probably
-    // Linker can't find it though
-    //Py_INCREF(new_code);
-
-    // Release the GIL
-    PyGILState_Release(gstate);
-
-    return 0; // Py_AddPendingCall requires the return value to be 0
-}
-
 void PyHook() {
     // This works
     //Py_Initialize();
@@ -82,19 +38,15 @@ void PyHook() {
         // Happens on process that exists
         WRITELINE_DEBUG("already done");
     }
-    WRITELINE_DEBUG("About to lock");
-    PyGILState_STATE gstate = PyGILState_Ensure();
-    WRITELINE_DEBUG("About to run");
 
-    //PyEval_SetTrace(trace, NULL);
-    if (Py_AddPendingCall(set_tracer_scheduled, NULL) != 0) {
-        printf("Failed to schedule tracer setup\n");
-    }
-    WRITELINE_DEBUG("Run trcaer");
+    BOOL success = PySetupHook(R"(
+def hookfunc(a, b, c):
+    print("Hooked:", a, b, c)
+    original_function(a, b, c)
+)", "hookfunc", "test_function", NULL, NULL);
+    WRITELINE_DEBUG(success);
 
-    PyGILState_Release(gstate);
-    WRITELINE_DEBUG("unlocked");
-
+    WRITELINE_DEBUG("Hooked Python!");
 }
 
 // Install the hooks

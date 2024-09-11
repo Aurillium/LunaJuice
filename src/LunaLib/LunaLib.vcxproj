@@ -191,6 +191,7 @@
     <ClInclude Include="messages.h" />
     <ClInclude Include="mitigations.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="pyhooking.h" />
     <ClInclude Include="secure.h" />
     <ClInclude Include="server.h" />
     <ClInclude Include="util.h" />
@@ -208,6 +209,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="pyhooking.cpp" />
     <ClCompile Include="secure.cpp" />
     <ClCompile Include="server.cpp" />
     <ClCompile Include="util.cpp" />
