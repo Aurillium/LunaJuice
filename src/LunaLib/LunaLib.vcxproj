@@ -133,8 +133,7 @@
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(SolutionDir)\$(PlatformTarget)\$(Configuration);$(ProjectDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>advapi32.lib;PolyHook_2.lib</AdditionalDependencies>
-      <IgnoreSpecificDefaultLibraries>
-      </IgnoreSpecificDefaultLibraries>
+      <IgnoreSpecificDefaultLibraries>python312_d.lib;python312.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Link>
     <PostBuildEvent>
       <Command>if $(ConfigurationName) == Debug (
@@ -168,6 +167,7 @@
       <EnableUAC>false</EnableUAC>
       <AdditionalDependencies>advapi32.lib;PolyHook_2.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)\$(PlatformTarget)\$(Configuration);$(ProjectDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreSpecificDefaultLibraries>python312_d.lib;python312.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Link>
     <PostBuildEvent>
       <Command>if $(ConfigurationName) == Debug (
@@ -191,6 +191,7 @@
     <ClInclude Include="messages.h" />
     <ClInclude Include="mitigations.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="pyfunctions.h" />
     <ClInclude Include="pyhooking.h" />
     <ClInclude Include="secure.h" />
     <ClInclude Include="server.h" />
@@ -209,6 +210,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="pyfunctions.cpp" />
     <ClCompile Include="pyhooking.cpp" />
     <ClCompile Include="secure.cpp" />
     <ClCompile Include="server.cpp" />

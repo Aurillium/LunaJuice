@@ -5,6 +5,9 @@
 
 #include "include/python/Python.h"
 
+// Just for CPython functions
+#include "hooking.h"
+
 typedef struct _PyHookSetupData {
     BOOL success;
     const char* target_expr;
@@ -44,3 +47,15 @@ public:
 
 BOOL PySetupHook(const char* code, const char* name, const char* target, PyFunctionObject** hook_func, PyFunctionObject** target_func);
 BOOL PyToggleHook(PyFunctionObject* hook, PyFunctionObject* target);
+
+
+typedef enum _CPythonState {
+    NoInit,
+    InitFailed,
+    PythonNoInit,   // Py_IsInitialized() == false
+    InitSuccess,
+} CPythonState;
+
+AnyFunction GetCPythonFunction(LPCSTR name);
+BOOL InitialiseCPython();
+BOOL AddCPythonFunction(HMODULE hPython, LPCSTR name);

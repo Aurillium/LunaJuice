@@ -29,24 +29,11 @@ void PyHook() {
     // This works
     //Py_Initialize();
     WRITELINE_DEBUG("About to init");
-    if (!Py_IsInitialized()) {
-        Py_Initialize();
-        // Happens on a new process
-        WRITELINE_DEBUG("Did it");
-    }
-    else {
-        // Happens on process that exists
-        WRITELINE_DEBUG("already done");
-    }
-
     BOOL success = PySetupHook(R"(
 def hookfunc(a, b, c):
     print("Hooked:", a, b, c)
     original_function(a, b, c)
 )", "hookfunc", "test_function", NULL, NULL);
-    WRITELINE_DEBUG(success);
-
-    WRITELINE_DEBUG("Hooked Python!");
 }
 
 // Install the hooks
@@ -65,8 +52,6 @@ void PrepareHooks() {
     PREPARE_HOOK("kernel32.dll", CreateProcessW);
     PREPARE_HOOK("kernel32.dll", ReadConsoleA);
     PREPARE_HOOK("kernel32.dll", ReadConsoleW);
-
-    PyHook();
 }
 
 BOOL CloseShare() {
@@ -157,6 +142,14 @@ __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for
         WRITELINE_DEBUG("Attached to process...");
         PrepareHooks();
         WRITELINE_DEBUG("Prepared hooks!");
+        if (!InitialiseCPython()) {
+            WRITELINE_DEBUG("Failed to initialise Python runtime.");
+        }
+        else {
+            WRITELINE_DEBUG("Initialised Python runtime!");
+            PyHook();
+        }
+
         if (!InitShare(hModule)) {
             WRITELINE_DEBUG("Could not set up shared memory.");
         }
