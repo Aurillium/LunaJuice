@@ -3,17 +3,11 @@
 #include <vector>
 #include <Windows.h>
 
-/*#include "include/python/object.h"
-#include "include/python/dictobject.h"
-#include "include/python/cpython/object.h"
-#include "include/python/cpython/funcobject.h"
-#include "include/python/pytypedefs.h"
-#include "include/python/compile.h"*/
 #include "include/python/Python.h"
 
 #include "debug.h"
+#include "pyfunctions.h"
 #include "pyhooking.h"
-
 
 #include <map>
 
@@ -27,12 +21,14 @@ typedef PyObject* (*PyDict_GetItemString_t)(PyObject* dp, const char* key);
 typedef PyObject* (*PyImport_AddModule_t)(const char* name);
 typedef PyObject* (*PyModule_GetDict_t)(PyObject*);
 typedef PyObject* (*PyDict_New_t)(void);
-typedef int (*PyCallable_Check_t)(PyObject* o);
+typedef int (*PyObject_HasAttrString_t)(PyObject* o, const char* attr_name);
 typedef PyObject* (*PyRun_StringFlags_t)(const char*, int, PyObject*, PyObject*, PyCompilerFlags*);
 typedef PyTypeObject* (*Py_TYPE_t)(PyObject*);
 typedef void (*Py_DecRef_t)(PyObject*);
 typedef void (*Py_IncRef_t)(PyObject*);
 typedef PyObject* (*PyObject_GetAttrString_t)(PyObject* o, const char* attr_name);
+typedef int (*PyObject_SetAttrString_t)(PyObject* o, const char* attr_name, PyObject* v);
+typedef PyObject* (*PyFunction_GetGlobals_t)(PyObject* op);
 
 typedef int (*PyObject_Print_t)(PyObject*, FILE*, int);
 
@@ -48,6 +44,12 @@ CPythonState GetCPythonState() {
     return CPYTHON_STATE;
 }
 LPCSTR COMPATIBLE_VERSIONS[] = {
+    "python27.dll",
+    "python30.dll",
+    "python31.dll",
+    "python32.dll",
+    "python33.dll",
+    "python34.dll",
     "python35.dll",
     "python36.dll",
     "python37.dll",
@@ -60,31 +62,27 @@ LPCSTR COMPATIBLE_VERSIONS[] = {
 LPCSTR REQUIRED_FUNCTIONS[] = {
     "PyDict_SetItemString",     // Stable ABI                       https://docs.python.org/3/c-api/dict.html#c.PyDict_SetItemString
     "PyDict_GetItemString",     // Stable ABI (borrowed ref TODO)   https://docs.python.org/3/c-api/dict.html#c.PyDict_GetItemString
-    "PyImport_AddModule",       // Stable ABI 3.7 (borrowed ref)    https://docs.python.org/3/c-api/import.html#c.PyImport_AddModuleObject - new 3.7
+    "PyImport_AddModule",       // Stable ABI (borrowed ref)        https://docs.python.org/3/c-api/import.html#c.PyImport_AddModuleObject
     "PyModule_GetDict",         // Stable ABI (borrowed ref)        https://docs.python.org/3/c-api/module.html#c.PyModule_GetDict
     "PyDict_New",               // Stable ABI (new ref)             https://docs.python.org/3/c-api/dict.html#c.PyDict_New      
-    "PyCallable_Check",         // Stable ABI                       https://docs.python.org/3/c-api/call.html#c.PyCallable_Check - new 3.9
+    "PyObject_HasAttrString",   // Stable ABI                       https://docs.python.org/3/c-api/object.html#c.PyObject_HasAttrString
     "PyRun_StringFlags",        // Stable (new ref)                 https://docs.python.org/3/c-api/veryhigh.html#c.PyRun_StringFlags
     "Py_DecRef",                // Stable ABI                       https://docs.python.org/3/c-api/refcounting.html#c.Py_DecRef
     "Py_IncRef",                // Stable ABI                       https://docs.python.org/3/c-api/refcounting.html#c.Py_IncRef
     "PyGILState_Ensure",        // Stable ABI                       https://docs.python.org/3/c-api/init.html#c.PyGILState_Ensure
     "PyGILState_Release",       // Stable ABI                       https://docs.python.org/3/c-api/init.html#c.PyGILState_Release
-    "Py_AddPendingCall",        // Stable ABI                       https://docs.python.org/3/c-api/init.html#c.Py_AddPendingCall - new 3.1
+    "Py_AddPendingCall",        // Stable ABI                       https://docs.python.org/3/c-api/init.html#c.Py_AddPendingCall
     "Py_IsInitialized",         // Stable ABI                       https://docs.python.org/3/c-api/init.html#c.Py_IsInitialized
     "PyObject_Print",           // Stable                           https://docs.python.org/3/c-api/object.html#c.PyObject_Print
     "PyObject_GetAttrString",   // Stable ABI                       https://docs.python.org/3/c-api/object.html#c.PyObject_GetAttrString
-
-    "PyFunction_GetDefaults",
-    "PyFunction_SetDefaults",
-    "PyFunction_GetGlobals",
-    "PyFunction_SetGlobals",
-    "PyFunction_GetCode",
-    "PyFunction_SetCode",
+    "PyObject_SetAttrString",   // Stable ABI                       https://docs.python.org/3/c-api/object.html#c.PyObject_SetAttrString
+    "PyFunction_GetGlobals",    // Stable ABI (borrowed ref)        https://docs.python.org/3/c-api/function.html#PyFunction_GetGlobals
+    "Py_GetVersion",            // Stable ABI (static ptr)          https://docs.python.org/3/c-api/init.html#c.Py_GetVersion
 };
 AnyFunction GetCPythonFunction(LPCSTR name) {
     return pyFunctions[name];
 }
-#define REQUIRE_FUNC(func) static func##_t func = (func##_t)GetCPythonFunction(#func);
+
 BOOL AddCPythonFunction(HMODULE hPython, LPCSTR name) {
     FARPROC func = GetProcAddress(hPython, name);
     if (func == NULL) {
@@ -124,8 +122,8 @@ BOOL InitialiseCPython() {
     }
 }
 
-// TODO: Use pyfunctions
-void PySwizzleGIL(PyFunctionObject* target_func, PyFunctionObject* hook_func) {
+
+void PySwizzleGIL_obselete(PyFunctionObject* target_func, PyFunctionObject* hook_func) {
     // Swizzle (this does not appear to be supported in the API)
     PyObject* old_code = target_func->func_code;
     PyObject* old_globals = target_func->func_globals;
@@ -155,23 +153,27 @@ void PySwizzleGIL(PyFunctionObject* target_func, PyFunctionObject* hook_func) {
 
 // Swizzle two Python functions, but add a global variable to reference the original function
 BOOL PyHookGIL(PyObject* target, PyObject* hook) {
-    REQUIRE_FUNC(PyCallable_Check);
+    REQUIRE_FUNC(PyObject_HasAttrString);
     REQUIRE_FUNC(PyDict_SetItemString);
+    REQUIRE_FUNC(PyFunction_GetGlobals);
+    REQUIRE_FUNC(PyObject_SetAttrString);
+    REQUIRE_FUNC(PyObject_GetAttrString);
+    REQUIRE_FUNC(PyDict_GetItemString);
+    REQUIRE_FUNC(PyRun_StringFlags);
+    REQUIRE_FUNC(PyImport_AddModule);
+    REQUIRE_FUNC(PyModule_GetDict);
+    REQUIRE_FUNC(PyDict_New);
 
     WRITELINE_DEBUG("Pre-call check" << hook);
-    if (!PyCallable_Check(hook)) {
+    if (!PyObject_HasAttrString(hook, "__call__")) {
         WRITE_DEBUG("Hook object was invalid.");
         return FALSE;
     }
     WRITELINE_DEBUG("After first call");
-    if (!PyCallable_Check(target)) {
+    if (!PyObject_HasAttrString(target, "__call__")) {
         WRITE_DEBUG("Target object was invalid.");
         return FALSE;
     }
-    PyFunctionObject* target_func = ((PyFunctionObject*)target);
-    PyFunctionObject* hook_func = ((PyFunctionObject*)hook);
-
-    WRITELINE_DEBUG("Pre-dict check");
 
     // Hook will be the original, target will be the hook
     // Inside of target (hook), let's add hook (original) as
@@ -180,14 +182,30 @@ BOOL PyHookGIL(PyObject* target, PyObject* hook) {
     // As the hook will have the code of the original
     // TODO: this modifies the globals for everyone, not just this function
     //       we need another method (perhaps patch builtins?)
-    if (PyDict_SetItemString(hook_func->func_globals, "original_function", hook)) {
-        WRITELINE_DEBUG("Could not set original_function key in hook globals");
+
+    // Here we need to set up fake globals
+    PyObject* main_module = PyImport_AddModule("__main__");
+    PyObject* main_globals = PyModule_GetDict(main_module);
+    PyObject* main_builtins = PyObject_GetAttrString(main_module, "__builtins__");
+    PyObject* custom_namespace = PyDict_New();
+
+    // NEW PLAN OF ATTACK
+    // Just shove main globals into _globals in hook space, builtins should be set to main builtins
+    // Caveat: we're using main globals but the builtins of wherever??
+
+    PyObject* hook_globals = PyFunction_GetGlobals(hook);
+    // Do error checking
+    PyDict_SetItemString(hook_globals, "globals", main_module);
+    PyDict_SetItemString(hook_globals, "builtins", main_builtins);
+
+    if (PyDict_SetItemString(hook_globals, "original", hook)) {
+        WRITELINE_DEBUG("Could not set `original` function key in hook globals");
         return FALSE;
     }
     // Now we can do the disruptive operations safely
     // Everything we could need to revert has been reverted
 
-    PySwizzleGIL(target_func, hook_func);
+    PySwizzleGIL2((PyFunctionObject*)target, (PyFunctionObject*)hook);
     return TRUE;
 }
 
@@ -198,9 +216,10 @@ PyObject* PyEvalGlobalGIL(const char* expr) {
 
     // Resolve target from __main__
     PyObject* main_module = PyImport_AddModule("__main__");
+    // TODO: If hidden function creation fails, this line causes a crash
     PyObject* globals = PyModule_GetDict(main_module);
     WRITELINE_DEBUG("About to run string...");
-    return PyRun_StringFlags("test_function", Py_eval_input, globals, globals, NULL);
+    return PyRun_StringFlags(expr, Py_eval_input, globals, globals, NULL);
 }
 // TODO: Get name by reading string from 'def ' to '(', etc.
 PyObject* PyHiddenFunctionGIL(const char* name, const char* code) {
@@ -211,21 +230,21 @@ PyObject* PyHiddenFunctionGIL(const char* name, const char* code) {
     REQUIRE_FUNC(Py_IncRef);
     REQUIRE_FUNC(PyRun_StringFlags);
     REQUIRE_FUNC(PyDict_GetItemString);
-    REQUIRE_FUNC(PyCallable_Check);
+    REQUIRE_FUNC(PyObject_HasAttrString);
+    REQUIRE_FUNC(PyObject_SetAttrString);
 
-    PyObject* custom_namespace = PyDict_New();
-    PyObject* main_module = PyImport_AddModule("__main__");
-    PyObject* globals = PyModule_GetDict(main_module);
+    // We can't use any builtins/globals in the definition, but
+    // we will have them accessible at call-time
+    PyObject* custom_namespace = PyDict_New(); // Check refs
 
-    PyRun_StringFlags(code, Py_file_input, globals, custom_namespace, NULL);
+    PyRun_StringFlags(code, Py_file_input, custom_namespace, custom_namespace, NULL);
     PyObject* func = PyDict_GetItemString(custom_namespace, name);
     // Take ownership so it doesn't get deleted
     Py_IncRef(func);
 
     Py_DecRef(custom_namespace);
     if (func) {
-        if (PyCallable_Check(func)) {
-            REQUIRE_FUNC(PyObject_Print);
+        if (PyObject_HasAttrString(func, "__call__")) {
             return func;
         }
         else {
@@ -290,7 +309,7 @@ int PyToggleHookThread(void* param) {
     gstate = PyGILState_Ensure();
     WRITELINE_DEBUG("Got GIL.");
 
-    PySwizzleGIL(setup->target, setup->hook);
+    PySwizzleGIL2(setup->target, setup->hook);
 
     setup->success = TRUE;
 cleanup:

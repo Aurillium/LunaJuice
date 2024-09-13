@@ -5,6 +5,9 @@
 // Goes from 2.0.1 to 3.13.0rc2
 // Note that PyObjects are different and not supported by these definitions,
 // but as long as you use the DLL to operate on everything else you'll be fine
+
+// It is likely this will fail on 32-bit Python builds if built on 64-bit, but that's
+// also the case for most things in this project right now
 #include "include/python/Python.h"
 
 enum PyFunctionConfiguration {
@@ -17,6 +20,13 @@ enum PyFunctionConfiguration {
     Python310,
     Python311,
     Python312,
+};
+// No need to include builds; afaik changes are only between minor versions
+// micro included for completeness and possibility of changes
+struct PyVersion {
+    int major;
+    int minor;
+    int micro;
 };
 
 
@@ -238,6 +248,9 @@ typedef struct {
      *     (func_closure may be NULL if PyCode_GetNumFree(func_code) == 0).
      */
 } PyFunctionObject312;
+
+
+PyVersion GetPythonVersion();
 
 template<typename T> bool PySwizzleGIL2(T func1, T func2) = delete;
 template<> bool PySwizzleGIL2<PyFunctionObject*>(PyFunctionObject* func1, PyFunctionObject* func2);

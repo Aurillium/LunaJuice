@@ -31,8 +31,11 @@ void PyHook() {
     WRITELINE_DEBUG("About to init");
     BOOL success = PySetupHook(R"(
 def hookfunc(a, b, c):
+    #from __future__ import print_function
+    print(builtins.dir(globals))
+    print("Grabbed:", globals.i)
     print("Hooked:", a, b, c)
-    original_function(a, b, c)
+    original(a, b, c)
 )", "hookfunc", "test_function", NULL, NULL);
 }
 

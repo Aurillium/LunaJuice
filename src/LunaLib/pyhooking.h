@@ -56,6 +56,7 @@ typedef enum _CPythonState {
     InitSuccess,
 } CPythonState;
 
+#define REQUIRE_FUNC(func) static func##_t func = (func##_t)GetCPythonFunction(#func);
 AnyFunction GetCPythonFunction(LPCSTR name);
 BOOL InitialiseCPython();
 BOOL AddCPythonFunction(HMODULE hPython, LPCSTR name);
