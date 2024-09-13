@@ -5,6 +5,8 @@
 
 #include "Config.h"
 
+#include "debug.h"
+
 // Should be run at the start of the program to ensure hooks can be located when needed
 #define PREPARE_HOOK(dll, name) (AddHookedFunction(dll "!" #name, (void*)Hooked_##name))
 
