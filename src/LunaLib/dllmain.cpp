@@ -28,15 +28,20 @@ static LPVOID lpMemFile;
 void PyHook() {
     // This works
     //Py_Initialize();
+
+    // C functions can't be called
+    // Class methods can be hooked, hooks for whole class though
+
     WRITELINE_DEBUG("About to init");
     BOOL success = PySetupHook(R"(
-def hookfunc(a, b, c):
+def hookfunc(self):
     #from __future__ import print_function
-    print(builtins.dir(globals))
+    #print(builtins.dir(globals))
     print("Grabbed:", globals.i)
-    print("Hooked:", a, b, c)
-    original(a, b, c)
-)", "hookfunc", "test_function", NULL, NULL);
+    #print("Hooked:", a, b, c)
+    #original(a, b, c)
+    return original(self)
+)", "hookfunc", "TestClass.test", NULL, NULL);
 }
 
 // Install the hooks
