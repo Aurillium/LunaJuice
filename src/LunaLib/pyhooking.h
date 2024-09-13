@@ -42,7 +42,7 @@ public:
 	BOOL GetStatus();
     PyFunctionObject* GetOriginal();
     PyFunctionObject* GetHook();
-	static LunaAPI::HookID Register(const char* code, const char* name, const char* target, LunaAPI::LogFlags log, LunaPyHook** hook = NULL);
+	static LunaAPI::HookID Register(const char* code, const char* name, const char* target, const char* idname, LunaAPI::LogFlags log, LunaPyHook** hook = NULL);
 };
 
 BOOL PySetupHook(const char* code, const char* name, const char* target, PyFunctionObject** hook_func, PyFunctionObject** target_func);

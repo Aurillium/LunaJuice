@@ -191,7 +191,6 @@ BOOL PyHookGIL(PyObject* target, PyObject* hook) {
 
     // NEW PLAN OF ATTACK
     // Just shove main globals into _globals in hook space, builtins should be set to main builtins
-    // Caveat: we're using main globals but the builtins of wherever??
 
     PyObject* hook_globals = PyFunction_GetGlobals(hook);
     // Do error checking
@@ -366,7 +365,9 @@ LunaPyHook::LunaPyHook(const char* code, const char* name, const char* target, L
     this->logEvents = log;
     this->registerSuccess = PySetupHook(code, name, target, &this->hook, &this->target);
 }
-LunaAPI::HookID LunaPyHook::Register(const char* code, const char* name, const char* target, LunaAPI::LogFlags log, LunaPyHook** hook) {
+
+// idname is there so we don't have to address by the expression in the registry
+LunaAPI::HookID LunaPyHook::Register(const char* code, const char* name, const char* target, const char* idname, LunaAPI::LogFlags log, LunaPyHook** hook) {
     LunaPyHook* newHook = new LunaPyHook(code, name, target, log);
     if (!newHook->registerSuccess) {
         // Clean up and exit
@@ -377,7 +378,15 @@ LunaAPI::HookID LunaPyHook::Register(const char* code, const char* name, const c
     if (hook != NULL) {
         *hook = newHook;
     }
+    LunaAPI::HookID id = HOOK_STORAGE.size();
+    HOOK_STORAGE.push_back(std::pair(Type_Python, newHook));
+
     // TODO: finish me
+    REGISTRY[idname] = id;
+
+    WRITELINE_DEBUG("New hook registered! " << identifier << " = " << id << ", miti: " << newHook->mitigations << ", log: " << newHook->logEvents);
+
+    return id;
 }
 
 BOOL LunaPyHook::GetStatus() {
