@@ -61,6 +61,12 @@ namespace LunaAPI {
 		Op_PythonVersion			= 0x008B,
 		Op_PythonInitialise			= 0x008C,
 
+		// 0x7f00 - 0x7fff: Reserved for testing
+#ifdef _DEBUG
+		Op_GenericTesting			= 0x7f00,
+		Op_AddTest					= 0x7f01,
+#endif
+
 
 		// OLD PROTOCOL
 
@@ -94,6 +100,9 @@ namespace LunaAPI {
 		Resp_NotFound			= 0xf006,
 		Resp_OperationFailed	= 0xf007,
 		Resp_WrongType			= 0xf008,
+		Resp_NotEnoughData		= 0xf009,
+		Resp_TooManyArguments	= 0xf00a,
+		Resp_NotEnoughArguments	= 0xf00b,
 
 		// C errors
 		Resp_C					= 0xf100,
@@ -107,9 +116,16 @@ namespace LunaAPI {
 		Resp_PyIsCFunction		= 0xf204,
 		Resp_PyIsBoundMethod	= 0xf205,
 
+		// Internal errors on the sender's part
+		Resp_Internal			= 0xfe00,
+		Resp_OutOfData			= 0xfe01,	// Tried to read past the end of sent data
+
 		// "Virtual" codes, used by the client internally
 		Resp_Virtual			= 0xff00,
 		Resp_Disconnect			= 0xff01,
+
+		// Initial state
+		Resp_None				= 0xffff
 	} ResponseCode;
 
 	typedef union _CommCode {
@@ -121,4 +137,13 @@ namespace LunaAPI {
 		CommCode code;
 		DWORD length;
 	} PacketHeader;
+
+	// These must be freed after use, when created they will be of size `sizeof(size_t) + length`
+	// TODO: Automatically free when out of scope
+	typedef struct _RPCString {
+		// Length of the string in bytes (not characters)
+		size_t length;
+		// Buffer to store the data
+		char* data;
+	} RPCString;
 }

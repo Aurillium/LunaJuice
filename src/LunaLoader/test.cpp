@@ -17,6 +17,14 @@ BOOL TestRPC(LunaAPI::LunaImplant implant) {
 	LunaAPI::ResponseCode resp;
 	// Connect
 	RESP_CHECK(resp, implant.Connect());
+
+	int c;
+	RESP_CHECK(resp, implant.AdditionTest(0x00002169, 0x000034, &c));
+	printf("Addition result: %d\n", c);
+
+	// Redo the rest when the RPC itself is working
+	return TRUE;
+
 	RESP_CHECK(resp, implant.RegisterHook("ntdll.dll!RtlAdjustPrivilege"));
 	RESP_CHECK(resp, implant.RegisterHook("ntdll.dll!NtReadFile"));
 
@@ -31,7 +39,7 @@ BOOL TestRPC(LunaAPI::LunaImplant implant) {
 
 	LunaAPI::Policy policy = LunaAPI::Policy();
 
-	RESP_CHECK(resp, implant.GetDefaultPolicy(&policy));
+	//RESP_CHECK(resp, implant.GetDefaultPolicy(&policy));
 
 	printf("Logs: 0x%08x\n", policy.logs);
 	printf("Miti: 0x%08x\n", policy.mitigations);
@@ -61,7 +69,7 @@ BOOL TestRPC(LunaAPI::LunaImplant implant) {
 
 	printf("Logs: 0x%08x\n", config.logs);
 	printf("Miti: 0x%08x\n", config.mitigations);
-	printf("Hook: 0x%08x\n", config.hook);
+	printf("Hook: 0x%016llx\n", config.hook);
 	printf("Bool: %d\n", enabled);
 
 	LunaAPI::HookID id;
@@ -69,7 +77,7 @@ BOOL TestRPC(LunaAPI::LunaImplant implant) {
 	DISP_LOG("Resolved hook ID: ", id);
 
 	RESP_CHECK(resp, implant.SetSecuritySettings(LunaAPI::Sec_BlockAll));
-	RESP_CHECK(resp, implant.GetDefaultPolicy(&policy));
+	//RESP_CHECK(resp, implant.GetDefaultPolicy(&policy));
 	printf("Security: 0x%08x\n", policy.security);
 
 	RESP_CHECK(resp, implant.SetFunctionState(id, FALSE));

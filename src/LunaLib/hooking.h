@@ -96,6 +96,7 @@ template<typename Ret, typename... Args> Ret LunaHook<Ret(*)(Args...)>::Callback
 }
 
 template<typename Ret, typename... Args> LunaHook<Ret(*)(Args...)>::LunaHook(LPCSTR moduleName, LPCSTR functionName, void* hookAddress, LunaAPI::MitigationFlags mitigate, LunaAPI::LogFlags log, LPCSTR sig) {
+    this->trampoline = NULL;
     this->registerSuccess = FALSE;
     this->signature = sig;
 

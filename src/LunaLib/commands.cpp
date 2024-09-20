@@ -7,6 +7,27 @@
 
 #include "Config.h"
 
+// Grab the next argument
+#define NEXT_ARGUMENT(node, type) reinterpret_cast<type*>(node->value); if (node == NULL) return LunaAPI::Resp_NotEnoughArguments; node = node->next;
+
+#ifdef _DEBUG
+LunaAPI::ResponseCode Handle_TestFunc(LunaConnection* connection, int* out, RPCArguments* head) {
+	// Extract our arguments at the beginning
+	char* first = NEXT_ARGUMENT(head, char);
+	int* second = NEXT_ARGUMENT(head, int);
+	int* third = NEXT_ARGUMENT(head, int);
+	if (head != NULL) {
+		WRITELINE_DEBUG("Too many arguments!");
+		return LunaAPI::Resp_TooManyArguments;
+	}
+	// Set the return value to two of our arguments added together
+	*out = *third + *second;
+	return LunaAPI::Resp_Success;
+}
+#endif
+
+
+/*
 // Does not contain handling for hook existing already
 BOOL Handle_RegisterHook(HANDLE hPipe, LPVOID buffer, DWORD length) {
 	REQUIRE_DATA(hPipe, buffer, length);
@@ -207,7 +228,7 @@ BOOL Handle_GetFunctionIdentifier(HANDLE hPipe, LPVOID buffer, DWORD length) {
 		return SendHeader(hPipe, LunaAPI::Resp_NotFound);
 	}
 
-	// Save identifier in LunaHook, then retrieve here
+	// TODO: Save identifier in LunaHook, then retrieve here
 }
 
 BOOL Handle_GetRegistrySize(HANDLE hPipe, LPVOID buffer, DWORD length) {
@@ -247,3 +268,4 @@ BOOL Handle_QueryByIdentifier(HANDLE hPipe, LPVOID buffer, DWORD length) {
 
 	return SendPacket(hPipe, LunaAPI::Resp_Success, &entry->second, sizeof(entry->second));
 }
+*/

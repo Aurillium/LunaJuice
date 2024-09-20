@@ -45,6 +45,7 @@ BOOL SendPacket(HANDLE hPipe, OpCode code, LPCVOID buffer, size_t length) {
             return FALSE;
         }
     }
+    //DISP_VERBOSE("Send packet! Bytes: " << bytesWritten);
     return TRUE;
 }
 

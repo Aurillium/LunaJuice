@@ -13,7 +13,7 @@
 
 namespace LunaAPI {
     // Registry for fast addressing
-    typedef unsigned int HookID;
+    typedef unsigned long long int HookID;
     const HookID MAX_HOOKID = ((HookID)~((HookID)0));
 
     typedef std::map<std::string, HookID> HookRegistry;

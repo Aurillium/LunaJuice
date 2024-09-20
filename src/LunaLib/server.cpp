@@ -14,27 +14,96 @@
 
 std::map<HANDLE, LunaConnection*> CONNECTED_CLIENTS = std::map<HANDLE, LunaConnection*>();
 
-// DO NOT CALL FROM WITHIN THREAD
-BOOL CleanupConnection(HANDLE hPipe) {
-    BOOL ret = FALSE;
-    LunaConnection* connection = CONNECTED_CLIENTS[hPipe];
-    if (connection->locked) {
-        WRITELINE_DEBUG("WARNING: Cleanup was called from a locked connection.");
-    }
-    connection->locked = TRUE;
-    WaitForSingleObject(connection->hThread, INFINITE);
-    GetExitCodeThread(connection->hThread, (LPDWORD)&ret);
-    CONNECTED_CLIENTS.erase(hPipe);
-    free(connection);
-    return ret;
+LunaConnection::LunaConnection(HANDLE hPipe) {
+    this->hPipe = hPipe;
+    this->lastResponse = LunaAPI::Resp_None;
+    // Buffer info
+    this->currentBuffer = NULL;
+    this->currentLength = 0;
+    this->bufferPosition = 0;
+    this->bufferLength = 0;
+    this->bufferBase = 0;
 }
 
-BOOL LJHandshakeServer(HANDLE hPipe) {
+LunaAPI::ResponseCode LunaConnection::GetLastError() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    return this->lastResponse;
+}
+
+LunaAPI::PacketHeader LunaConnection::WaitForPacket() {
+    DWORD bytesRead = 0;
+
+    LunaAPI::PacketHeader header;
+    BOOL success = ReadFile(this->hPipe, &header, sizeof(header), &bytesRead, NULL);
+    if (!success || bytesRead != sizeof(header)) {
+        WRITELINE_DEBUG("Could not read header from LunaJuice pipe: " << GetLastError());
+        return LunaAPI::PacketHeader{LunaAPI::CommCode{LunaAPI::Resp_Disconnect}, 0};
+    }
+    this->currentLength = header.length;
+    this->bufferBase = 0;
+    this->bufferLength = 0;
+    this->bufferPosition = 0;
+    free(this->currentBuffer);
+    this->currentBuffer = NULL;
+    return header;
+}
+
+BOOL LunaConnection::LoadNextBuffer() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+
+    if (this->bufferPosition < this->bufferLength) {
+        WRITELINE_DEBUG("Buffer has not reached its end, are we reloading too early?");
+    }
+    else if (this->bufferPosition > this->bufferLength) {
+        WRITELINE_DEBUG("Buffer position is past length, possible overrun?");
+    }
+    if (this->bufferBase + this->bufferLength == this->currentLength) {
+        this->lastResponse = LunaAPI::Resp_OutOfData;
+        WRITELINE_DEBUG("Out of data from RPC");
+        return FALSE;
+    }
+    free(this->currentBuffer);
+    this->bufferBase += this->bufferLength;
+    this->bufferLength = min(MAX_PACKET_BUFFER, this->currentLength - this->bufferBase);
+    this->bufferPosition = 0;
+    this->currentBuffer = malloc(this->bufferLength);
+    if (this->currentBuffer == NULL) {
+        this->lastResponse = LunaAPI::Resp_OutOfMemory;
+        WRITELINE_DEBUG("Could not allocate space for RPC data buffer.");
+        return FALSE;
+    }
+
+    DWORD bytesRead = 0;
+    DWORD totalRead = 0;
+    while (totalRead < this->bufferLength) {
+        BOOL success = ReadFile(this->hPipe, (void*)((uint64_t)this->currentBuffer + totalRead), this->bufferLength - totalRead, &bytesRead, NULL);
+        if (!success) {
+            free(this->currentBuffer);
+            this->currentBuffer = NULL;
+            this->currentLength = 0;
+            this->bufferBase = 0;
+            this->bufferLength = 0;
+            this->bufferPosition = 0;
+            WRITELINE_DEBUG("Could not read data from LunaJuice pipe: " << GetLastError());
+            return FALSE;
+        }
+        if (bytesRead == 0) {
+            break; // End of file
+            // This will probably be an error
+        }
+        totalRead += bytesRead;
+    }
+
+    return TRUE;
+}
+
+BOOL LunaConnection::ServerHandshake() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
     DWORD bytesWritten = 0, bytesRead = 0;
 
     // Read client's handshake message
     char buffer[8];
-    BOOL success = ReadFile(hPipe, buffer, sizeof(buffer) - 1, &bytesRead, NULL);
+    BOOL success = ReadFile(this->hPipe, buffer, sizeof(buffer) - 1, &bytesRead, NULL);
     if (!success || bytesRead == 0) {
         WRITELINE_DEBUG("Could not read LunaJuice pipe: " << GetLastError());
         return FALSE;
@@ -47,7 +116,7 @@ BOOL LJHandshakeServer(HANDLE hPipe) {
 
     // Send response
     const char response[] = "polo";
-    success = WriteFile(hPipe, response, sizeof(response), &bytesWritten, NULL);
+    success = WriteFile(this->hPipe, response, sizeof(response), &bytesWritten, NULL);
     if (!success || sizeof(response) != bytesWritten) {
         WRITELINE_DEBUG("Could not write to LunaJuice pipe: " << GetLastError());
         return FALSE;
@@ -57,13 +126,14 @@ BOOL LJHandshakeServer(HANDLE hPipe) {
     return TRUE;
 }
 
-BOOL SendHeader(HANDLE hPipe, LunaAPI::ResponseCode code, size_t length) {
+
+BOOL LunaConnection::SendHeader(LunaAPI::ResponseCode code, DWORD length) {
     DWORD bytesWritten = 0;
 
     LunaAPI::PacketHeader header;
     header.length = length;
     header.code.response = code;
-    BOOL success = WriteFile(hPipe, (LPCVOID)&header, sizeof(header), &bytesWritten, NULL);
+    BOOL success = WriteFile(this->hPipe, (LPCVOID)&header, sizeof(header), &bytesWritten, NULL);
     if (!success || sizeof(header) != bytesWritten) {
         WRITELINE_DEBUG("Could not write to LunaJuice pipe: " << GetLastError());
         // True here means close the connection
@@ -72,19 +142,19 @@ BOOL SendHeader(HANDLE hPipe, LunaAPI::ResponseCode code, size_t length) {
     return FALSE;
 }
 
-BOOL SendPacket(HANDLE hPipe, LunaAPI::ResponseCode code, LPCVOID buffer, size_t length) {
+BOOL LunaConnection::SendPacket(LunaAPI::ResponseCode code, LPCVOID buffer, DWORD length) {
     DWORD bytesWritten = 0;
 
     LunaAPI::PacketHeader header;
     header.length = length;
     header.code.response = code;
-    BOOL success = WriteFile(hPipe, (LPCVOID)&header, sizeof(header), &bytesWritten, NULL);
+    BOOL success = WriteFile(this->hPipe, (LPCVOID)&header, sizeof(header), &bytesWritten, NULL);
     if (!success || sizeof(header) != bytesWritten) {
         WRITELINE_DEBUG("Could not write response code to LunaJuice pipe: " << GetLastError());
         // True here means close the connection
         return TRUE;
     }
-    success = WriteFile(hPipe, buffer, length, &bytesWritten, NULL);
+    success = WriteFile(this->hPipe, buffer, length, &bytesWritten, NULL);
     if (!success || length != bytesWritten) {
         WRITELINE_DEBUG("Could not write data to LunaJuice pipe: " << GetLastError());
         return TRUE;
@@ -92,10 +162,10 @@ BOOL SendPacket(HANDLE hPipe, LunaAPI::ResponseCode code, LPCVOID buffer, size_t
     return FALSE;
 }
 
-BOOL SendData(HANDLE hPipe, LPCVOID buffer, size_t length) {
+BOOL LunaConnection::SendData(LPCVOID buffer, DWORD length) {
     DWORD bytesWritten = 0;
 
-    BOOL success = WriteFile(hPipe, buffer, length, &bytesWritten, NULL);
+    BOOL success = WriteFile(this->hPipe, buffer, length, &bytesWritten, NULL);
     if (!success || length != bytesWritten) {
         WRITELINE_DEBUG("Could not write data to LunaJuice pipe: " << GetLastError());
         return TRUE;
@@ -103,41 +173,9 @@ BOOL SendData(HANDLE hPipe, LPCVOID buffer, size_t length) {
     return FALSE;
 }
 
-BOOL WaitForCommand(HANDLE hPipe) {
-    DWORD bytesRead = 0;
+BOOL LunaConnection::RunCommand() {
+    LunaAPI::PacketHeader header = this->WaitForPacket();
 
-    LunaAPI::PacketHeader header;
-    BOOL success = ReadFile(hPipe, &header, sizeof(header), &bytesRead, NULL);
-    if (!success || bytesRead == 0) {
-        WRITELINE_DEBUG("Could not read opcode from LunaJuice pipe: " << GetLastError());
-        return TRUE;
-    }
-
-    void* buffer = NULL;
-    if (header.length) {
-        buffer = (void*)malloc(header.length);
-        if (buffer == NULL) {
-            // Return error
-            WRITELINE_DEBUG("Could not allocate memory for RPC data buffer.");
-            return SendHeader(hPipe, LunaAPI::Resp_OutOfMemory);
-        }
-
-        // Loop until all data receieved
-        DWORD totalRead = 0;
-        while (totalRead < header.length) {
-            success = ReadFile(hPipe, (void*)((uint64_t)buffer + totalRead), header.length, &bytesRead, NULL);
-            if (!success) {
-                free(buffer);
-                WRITELINE_DEBUG("Could not read additional data from LunaJuice pipe: " << GetLastError());
-                return TRUE;
-            }
-            if (bytesRead == 0) {
-                break; // End of file
-                // This will probably be an error
-            }
-            totalRead += bytesRead;
-        }
-    }
     // Pass in handle and buffer to handler functions
     LunaAPI::OpCode opcode = header.code.opcode;
     bool foundCommand = true;
@@ -146,9 +184,15 @@ BOOL WaitForCommand(HANDLE hPipe) {
         // Terminate connection, send no data back
         ret = true;
     }
+#ifdef _DEBUG
+    // THIS IS ONLY FOR TESTING
+    else if (opcode == LunaAPI::Op_AddTest) {
+        RunRPC<int, bool, int, int>(this, Handle_TestFunc);
+    }
+#endif
 
     // Set config
-    else if (opcode == LunaAPI::Op_RegisterHook) {
+    /*else if (opcode == LunaAPI::Op_RegisterHook) {
         ret = Handle_RegisterHook(hPipe, buffer, header.length);
     }
     else if (opcode == LunaAPI::Op_SetDefaultMitigations) {
@@ -188,31 +232,29 @@ BOOL WaitForCommand(HANDLE hPipe) {
     }
     else if (opcode == LunaAPI::Op_QueryByIdentifier) {
         ret = Handle_QueryByIdentifier(hPipe, buffer, header.length);
-    }
+    }*/
 
     else {
         foundCommand = false;
     }
-
-    free(buffer);
 
     // If we found the command, return the result
     if (foundCommand) {
         return ret;
     }
     // If not, it was an invalid command
-    return SendHeader(hPipe, LunaAPI::Resp_InvalidCommand);
+    return this->SendHeader(LunaAPI::Resp_InvalidCommand);
 }
 
 // Client connection flow
-BOOL HandleClient(LPVOID lpParam) {
-    HANDLE hPipe = (HANDLE)lpParam;
+BOOL LunaConnection::ServeConnection(LunaConnection* connection) {
+    // Don't lock here
     BOOL ret = TRUE;
     BOOL close = FALSE;
 
     WRITELINE_DEBUG("Connected!");
     // Handshake first
-    if (LJHandshakeServer(hPipe)) {
+    if (connection->ServerHandshake()) {
         WRITELINE_DEBUG("Handshake success!");
     }
     else {
@@ -223,14 +265,14 @@ BOOL HandleClient(LPVOID lpParam) {
 
     // Wait for commands until the connection is set to close
     while (!close) {
-        close = WaitForCommand(hPipe);
+        close = connection->RunCommand();
     }
     WRITELINE_DEBUG("Closing connection...");
 
 cleanup:
-    // Create another thread to clean this connection up if we naturally reach the end
-    // TODO: This needs refinement
-    CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)CleanupConnection, (LPVOID)hPipe, 0, NULL);
+    // Clean the connection up when we're done with it
+    CONNECTED_CLIENTS.erase(connection->hPipe);
+    free(connection);
     return ret;
 }
 
@@ -285,14 +327,12 @@ BOOL BeginServer(LPVOID lpParam) {
 
         if (connectSuccess) {
             WRITELINE_DEBUG("Handling client...");
-            LunaConnection* connection = (LunaConnection*)malloc(sizeof(LunaConnection));
+            LunaConnection* connection = new LunaConnection(hPipeRPC);
             if (connection == NULL) {
                 WRITELINE_DEBUG("Could not allocate memory for new RPC connection.");
                 continue;
             }
-            connection->locked = FALSE;
-            HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)HandleClient, (LPVOID)hPipeRPC, 0, NULL);
-            connection->hThread = hThread;
+            HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)LunaConnection::ServeConnection, connection, 0, NULL);
             CONNECTED_CLIENTS[hPipeRPC] = connection;
             if (hThread == NULL) {
                 WRITELINE_DEBUG("Could not create thread for RPC.");
@@ -305,7 +345,7 @@ BOOL BeginServer(LPVOID lpParam) {
         }
     }
 
-    // Clean up all leftover threads here
+    // TODO: Clean up all leftover threads here
     // No threads left behind
 
     LocalFree(psd);

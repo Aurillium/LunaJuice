@@ -46,5 +46,9 @@ namespace LunaAPI {
 
 		// Helper functions built on others
 		ResponseCode DownloadRegistry();
+
+#ifdef _DEBUG
+		ResponseCode AdditionTest(int a, int b, int* c);
+#endif
 	};
 }

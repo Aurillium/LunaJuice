@@ -89,6 +89,7 @@ BOOL AddCPythonFunction(HMODULE hPython, LPCSTR name) {
         return FALSE;
     }
     pyFunctions[name] = (AnyFunction)func;
+    return TRUE;
 }
 BOOL InitialiseCPython() {
     HMODULE hPython = NULL;
@@ -384,7 +385,7 @@ LunaAPI::HookID LunaPyHook::Register(const char* code, const char* name, const c
     // TODO: finish me
     REGISTRY[idname] = id;
 
-    WRITELINE_DEBUG("New hook registered! " << identifier << " = " << id << ", miti: " << newHook->mitigations << ", log: " << newHook->logEvents);
+    WRITELINE_DEBUG("New hook registered! " << idname << " = " << id << ", log: " << newHook->logEvents);
 
     return id;
 }

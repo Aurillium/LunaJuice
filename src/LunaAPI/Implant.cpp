@@ -115,7 +115,7 @@ ResponseCode LunaImplant::Handshake() {
 }
 
 ResponseCode LunaImplant::RegisterHook(LPCSTR identifier) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_RegisterHook, (LPCVOID)identifier, strlen(identifier));
+    BOOL result = SendPacket(this->hPipeRPC, Op_NativeRegisterHook, (LPCVOID)identifier, strlen(identifier));
     if (!result) {
         UPDATE_ERROR("Could not send data to LunaJuice to register hook");
         return Resp_Disconnect;
@@ -143,7 +143,7 @@ ResponseCode LunaImplant::RegisterHook(LPCSTR identifier) {
 }
 
 ResponseCode LunaImplant::SetDefaultMitigations(LunaAPI::MitigationFlags mitigations) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_SetDefaultMitigations, &mitigations, sizeof(mitigations));
+    BOOL result = SendPacket(this->hPipeRPC, Op_NativeSetDefaultMiti, &mitigations, sizeof(mitigations));
     if (!result) {
         UPDATE_ERROR("Could not send data to LunaJuice to set default mitigations");
         return Resp_Disconnect;
@@ -158,7 +158,7 @@ ResponseCode LunaImplant::SetDefaultMitigations(LunaAPI::MitigationFlags mitigat
     return header.code.response;
 }
 ResponseCode LunaImplant::SetDefaultLogs(LunaAPI::LogFlags logs) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_SetDefaultLogging, &logs, sizeof(logs));
+    BOOL result = SendPacket(this->hPipeRPC, Op_NativeSetDefaultLogs, &logs, sizeof(logs));
     if (!result) {
         UPDATE_ERROR("Could not send data to LunaJuice to set default logs");
         return Resp_Disconnect;
@@ -187,7 +187,7 @@ ResponseCode LunaImplant::SetSecuritySettings(LunaAPI::SecuritySettings security
     return header.code.response;
 }
 ResponseCode LunaImplant::SetFunctionConfig(HookConfig config) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_SetFunctionConfig, &config, sizeof(config));
+    BOOL result = SendPacket(this->hPipeRPC, Op_NativeSetFunctionConfig, &config, sizeof(config));
     if (!result) {
         UPDATE_ERROR("Could not send data to LunaJuice to set function config");
         return Resp_Disconnect;
@@ -201,7 +201,7 @@ ResponseCode LunaImplant::SetFunctionConfig(HookConfig config) {
     return header.code.response;
 }
 ResponseCode LunaImplant::AddFunctionConfig(HookConfig config) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_AddFunctionConfig, &config, sizeof(config));
+    BOOL result = SendPacket(this->hPipeRPC, Op_NativeAddFunctionConfig, &config, sizeof(config));
     if (!result) {
         UPDATE_ERROR("Could not send data to LunaJuice to add function config");
         return Resp_Disconnect;
@@ -215,7 +215,7 @@ ResponseCode LunaImplant::AddFunctionConfig(HookConfig config) {
     return header.code.response;
 }
 ResponseCode LunaImplant::DelFunctionConfig(HookConfig config) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_DelFunctionConfig, &config, sizeof(config));
+    BOOL result = SendPacket(this->hPipeRPC, Op_NativeDelFunctionConfig, &config, sizeof(config));
     if (!result) {
         UPDATE_ERROR("Could not send data to LunaJuice to remove function config");
         return Resp_Disconnect;
@@ -236,7 +236,7 @@ ResponseCode LunaImplant::SetFunctionState(HookID id, BOOL enabled) {
     memcpy_s((void*)((uint64_t)buffer + sizeof(id)), sizeof(enabled), &enabled, sizeof(enabled));
 
     // Send the buffer
-    BOOL result = SendPacket(this->hPipeRPC, Op_SetFunctionState, buffer, bufferSize);
+    BOOL result = SendPacket(this->hPipeRPC, Op_NativeSetFunctionState, buffer, bufferSize);
     if (!result) {
         UPDATE_ERROR("Could not send header to LunaJuice to set function state");
         return Resp_Disconnect;
@@ -294,8 +294,8 @@ ResponseCode LunaImplant::SetFunctionState(LPCSTR id, BOOL enabled) {
 
 
 // Get config
-ResponseCode LunaImplant::GetDefaultPolicy(Policy* policy) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_GetDefaultPolicy, NULL, 0);
+/*ResponseCode LunaImplant::GetDefaultPolicy(Policy* policy) {
+    BOOL result = SendPacket(this->hPipeRPC, Op_NativeGetDefaultLogs, NULL, 0);
     if (!result) {
         UPDATE_ERROR("Could not send data to LunaJuice to get default policy");
         return Resp_Disconnect;
@@ -311,13 +311,13 @@ ResponseCode LunaImplant::GetDefaultPolicy(Policy* policy) {
         return header.code.response;
     }
 
-    result = RecvFixedData(this->hPipeRPC, policy, sizeof(*policy));
+    result = RecvFixedData(this->hPipeRPC, policy., sizeof(*policy));
     if (!result) {
         UPDATE_ERROR("Could not receive default policy from LunaJuice");
         return Resp_Disconnect;
     }
     return Resp_Success;
-}
+}*/
 ResponseCode LunaImplant::GetRegistrySize(HookID* size) {
     BOOL result = SendPacket(this->hPipeRPC, Op_GetRegistrySize, NULL, 0);
     if (!result) {
@@ -368,8 +368,9 @@ ResponseCode LunaImplant::QueryByIdentifier(LPCSTR id, HookID* answer) {
     return Resp_Success;
 }
 
+// TODO: may be broken
 ResponseCode LunaImplant::GetFunctionInfo(HookID id, HookConfig* config, BOOL* enabled) {
-    BOOL result = SendPacket(this->hPipeRPC, Op_GetFunctionInfo, &id, sizeof(id));
+    BOOL result = SendPacket(this->hPipeRPC, Op_NativeGetFunctionConfig, &id, sizeof(id));
     if (!result) {
         UPDATE_ERROR("Could not send data to LunaJuice to get function info");
         return Resp_Disconnect;
@@ -409,3 +410,36 @@ ResponseCode LunaImplant::GetFunctionInfo(LPCSTR id, HookConfig* config, BOOL* e
     }
     return this->GetFunctionInfo(entry->second, config, enabled);
 }
+
+
+// Debug only area
+#ifdef _DEBUG
+ResponseCode LunaImplant::AdditionTest(int a, int b, int* c) {
+    void* buf = malloc(sizeof(bool) + sizeof(int) * 2);
+    char test = 'h';
+    memcpy_s(buf, sizeof(bool) + sizeof(int) * 2, &test, sizeof(bool));
+    memcpy_s((void*)((uint64_t)buf + sizeof(bool)), sizeof(int) * 2, &a, sizeof(int));
+    memcpy_s((void*)((uint64_t)buf + sizeof(bool) + sizeof(int)), sizeof(int), &b, sizeof(int));
+    BOOL result = SendPacket(this->hPipeRPC, Op_AddTest, buf, sizeof(bool) + sizeof(int) * 2);
+    if (!result) {
+        DISP_ERROR("Could not send addition packet");
+        return Resp_Disconnect;
+    }
+    PacketHeader header;
+    result = RecvHeader(this->hPipeRPC, &header);
+    if (!result) {
+        DISP_ERROR("Could not receive addition result header");
+        return Resp_Disconnect;
+    }
+    if (header.code.response != Resp_Success) {
+        DISP_ERROR("Failed to add numbers");
+        return header.code.response;
+    }
+    result = RecvFixedData(this->hPipeRPC, c, sizeof(*c));
+    if (!result) {
+        DISP_ERROR("Could not receive addition result data");
+        return Resp_Disconnect;
+    }
+    return Resp_Success;
+}
+#endif
