@@ -12,12 +12,13 @@ namespace LunaAPI {
 		HANDLE hPipeRPC;
 		CHAR id[LUNA_MAX_ID_LENGTH + 1];
 		BOOL connected;
-		HookRegistry registry;
+		HookRegistry* registry;
 
 		// Internal functions
 		ResponseCode Handshake();
 	public:
 		LunaImplant(LPCSTR id);
+		~LunaImplant();
 		ResponseCode Connect();
 		void Disconnect();
 		BOOL IsConnected();

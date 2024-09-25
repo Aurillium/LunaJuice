@@ -12,6 +12,9 @@
 #define LUNA_MAX_ID_LENGTH 24
 
 namespace LunaAPI {
+    // Currently no need for more than 2kB in one packet
+    const SIZE_T MAX_PACKET_BUFFER = 2048;
+
     // Registry for fast addressing
     typedef unsigned long long int HookID;
     const HookID MAX_HOOKID = ((HookID)~((HookID)0));

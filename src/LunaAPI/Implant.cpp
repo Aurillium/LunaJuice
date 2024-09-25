@@ -4,14 +4,14 @@
 #include "Config.h"
 #include "Implant.h"
 #include "Protocol.h"
+#include "LunaConnection.h"
 
-#include "connection.h"
 #include "output.h"
 
 using namespace LunaAPI;
 
 LunaImplant::LunaImplant(LPCSTR implantID) {
-    registry = HookRegistry();
+    registry = new HookRegistry();
     size_t idLength = strlen(implantID);
     if (idLength > LUNA_MAX_ID_LENGTH) {
         DISP_WARN("Implant ID cannot be above " << LUNA_MAX_ID_LENGTH << " characters. '" << implantID << "' will be truncated");
@@ -24,6 +24,9 @@ LunaImplant::LunaImplant(LPCSTR implantID) {
     // Set this up on connect
     connected = FALSE;
     hPipeRPC = NULL;
+}
+LunaImplant::~LunaImplant() {
+    delete this->registry;
 }
 
 ResponseCode LunaImplant::Connect() {
@@ -137,7 +140,7 @@ ResponseCode LunaImplant::RegisterHook(LPCSTR identifier) {
         UPDATE_ERROR("Could not get hook ID from LunaJuice");
         return Resp_Disconnect;
     }
-    this->registry[identifier] = id;
+    (*this->registry)[identifier] = id;
     DISP_VERBOSE_REMOTE("Registered '" << identifier << "' as " << id << ".");
     return Resp_Success;
 }
@@ -252,8 +255,8 @@ ResponseCode LunaImplant::SetFunctionState(HookID id, BOOL enabled) {
 }
 
 ResponseCode LunaImplant::SetFunctionConfig(LPCSTR id, MitigationFlags mitigations, LogFlags logs) {
-    auto entry = this->registry.find(id);
-    if (entry == this->registry.end()) {
+    auto entry = this->registry->find(id);
+    if (entry == this->registry->end()) {
         return Resp_NotFound;
     }
     HookConfig config = HookConfig();
@@ -263,8 +266,8 @@ ResponseCode LunaImplant::SetFunctionConfig(LPCSTR id, MitigationFlags mitigatio
     return this->SetFunctionConfig(config);
 }
 ResponseCode LunaImplant::AddFunctionConfig(LPCSTR id, MitigationFlags mitigations, LogFlags logs) {
-    auto entry = this->registry.find(id);
-    if (entry == this->registry.end()) {
+    auto entry = this->registry->find(id);
+    if (entry == this->registry->end()) {
         return Resp_NotFound;
     }
     HookConfig config = HookConfig();
@@ -274,8 +277,8 @@ ResponseCode LunaImplant::AddFunctionConfig(LPCSTR id, MitigationFlags mitigatio
     return this->AddFunctionConfig(config);
 }
 ResponseCode LunaImplant::DelFunctionConfig(LPCSTR id, MitigationFlags mitigations, LogFlags logs) {
-    auto entry = this->registry.find(id);
-    if (entry == this->registry.end()) {
+    auto entry = this->registry->find(id);
+    if (entry == this->registry->end()) {
         return Resp_NotFound;
     }
     HookConfig config = HookConfig();
@@ -285,8 +288,8 @@ ResponseCode LunaImplant::DelFunctionConfig(LPCSTR id, MitigationFlags mitigatio
     return this->DelFunctionConfig(config);
 }
 ResponseCode LunaImplant::SetFunctionState(LPCSTR id, BOOL enabled) {
-    auto entry = this->registry.find(id);
-    if (entry == this->registry.end()) {
+    auto entry = this->registry->find(id);
+    if (entry == this->registry->end()) {
         return Resp_NotFound;
     }
     return this->SetFunctionState(entry->second, enabled);
@@ -404,8 +407,8 @@ ResponseCode LunaImplant::GetFunctionInfo(HookID id, HookConfig* config, BOOL* e
     return Resp_Success;
 }
 ResponseCode LunaImplant::GetFunctionInfo(LPCSTR id, HookConfig* config, BOOL* enabled) {
-    auto entry = this->registry.find(id);
-    if (entry == this->registry.end()) {
+    auto entry = this->registry->find(id);
+    if (entry == this->registry->end()) {
         return Resp_NotFound;
     }
     return this->GetFunctionInfo(entry->second, config, enabled);

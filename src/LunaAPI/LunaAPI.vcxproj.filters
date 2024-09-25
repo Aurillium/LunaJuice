@@ -39,7 +39,7 @@
     <ClInclude Include="Protocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="connection.h">
+    <ClInclude Include="LunaConnection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -62,7 +62,7 @@
     <ClCompile Include="random.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="connection.cpp">
+    <ClCompile Include="LunaConnection.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

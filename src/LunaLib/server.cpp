@@ -12,93 +12,41 @@
 
 #include "shared_util.h"
 
-std::map<HANDLE, LunaConnection*> CONNECTED_CLIENTS = std::map<HANDLE, LunaConnection*>();
+std::map<HANDLE, LunaServer*> CONNECTED_CLIENTS = std::map<HANDLE, LunaServer*>();
 
-LunaConnection::LunaConnection(HANDLE hPipe) {
-    this->hPipe = hPipe;
-    this->lastResponse = LunaAPI::Resp_None;
-    // Buffer info
-    this->currentBuffer = NULL;
-    this->currentLength = 0;
-    this->bufferPosition = 0;
-    this->bufferLength = 0;
-    this->bufferBase = 0;
-}
+template<> RPCArguments* GetArgumentNode(LunaConnection* connection, char** _) {
+    RPCArguments* node = (RPCArguments*)malloc(sizeof(RPCArguments));
 
-LunaAPI::ResponseCode LunaConnection::GetLastError() {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-    return this->lastResponse;
-}
-
-LunaAPI::PacketHeader LunaConnection::WaitForPacket() {
-    DWORD bytesRead = 0;
-
-    LunaAPI::PacketHeader header;
-    BOOL success = ReadFile(this->hPipe, &header, sizeof(header), &bytesRead, NULL);
-    if (!success || bytesRead != sizeof(header)) {
-        WRITELINE_DEBUG("Could not read header from LunaJuice pipe: " << GetLastError());
-        return LunaAPI::PacketHeader{LunaAPI::CommCode{LunaAPI::Resp_Disconnect}, 0};
+    if (node == NULL) {
+        WRITELINE_DEBUG("No room to store RPC call arguments (argument structure).");
+        return NULL;
     }
-    this->currentLength = header.length;
-    this->bufferBase = 0;
-    this->bufferLength = 0;
-    this->bufferPosition = 0;
-    free(this->currentBuffer);
-    this->currentBuffer = NULL;
-    return header;
-}
+    node->next = NULL;
 
-BOOL LunaConnection::LoadNextBuffer() {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    if (this->bufferPosition < this->bufferLength) {
-        WRITELINE_DEBUG("Buffer has not reached its end, are we reloading too early?");
-    }
-    else if (this->bufferPosition > this->bufferLength) {
-        WRITELINE_DEBUG("Buffer position is past length, possible overrun?");
-    }
-    if (this->bufferBase + this->bufferLength == this->currentLength) {
-        this->lastResponse = LunaAPI::Resp_OutOfData;
-        WRITELINE_DEBUG("Out of data from RPC");
+    // Get the length of the string
+    DWORD length = 0;
+    if (!connection->GetTyped(&length)) {
+        WRITELINE_DEBUG("Could not get argument string length.");
+        free(node);
         return FALSE;
     }
-    free(this->currentBuffer);
-    this->bufferBase += this->bufferLength;
-    this->bufferLength = min(MAX_PACKET_BUFFER, this->currentLength - this->bufferBase);
-    this->bufferPosition = 0;
-    this->currentBuffer = malloc(this->bufferLength);
-    if (this->currentBuffer == NULL) {
-        this->lastResponse = LunaAPI::Resp_OutOfMemory;
-        WRITELINE_DEBUG("Could not allocate space for RPC data buffer.");
+    char* item = (char*)malloc(sizeof(length));
+    if (item == NULL) {
+        WRITELINE_DEBUG("No room to store RPC call arguments (argument value).");
+        free(node);
         return FALSE;
     }
-
-    DWORD bytesRead = 0;
-    DWORD totalRead = 0;
-    while (totalRead < this->bufferLength) {
-        BOOL success = ReadFile(this->hPipe, (void*)((uint64_t)this->currentBuffer + totalRead), this->bufferLength - totalRead, &bytesRead, NULL);
-        if (!success) {
-            free(this->currentBuffer);
-            this->currentBuffer = NULL;
-            this->currentLength = 0;
-            this->bufferBase = 0;
-            this->bufferLength = 0;
-            this->bufferPosition = 0;
-            WRITELINE_DEBUG("Could not read data from LunaJuice pipe: " << GetLastError());
-            return FALSE;
-        }
-        if (bytesRead == 0) {
-            break; // End of file
-            // This will probably be an error
-        }
-        totalRead += bytesRead;
+    if (!connection->GetRaw(item, length)) {
+        WRITELINE_DEBUG("Could not get item from RPC arguents.");
+        free(item);
+        free(node);
+        return FALSE;
     }
-
-    return TRUE;
+    node->value = item;
 }
 
-BOOL LunaConnection::ServerHandshake() {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
+BOOL LunaServer::ServerHandshake() {
+    std::lock_guard<std::recursive_mutex> lock(*mtx);
     DWORD bytesWritten = 0, bytesRead = 0;
 
     // Read client's handshake message
@@ -126,54 +74,7 @@ BOOL LunaConnection::ServerHandshake() {
     return TRUE;
 }
 
-
-BOOL LunaConnection::SendHeader(LunaAPI::ResponseCode code, DWORD length) {
-    DWORD bytesWritten = 0;
-
-    LunaAPI::PacketHeader header;
-    header.length = length;
-    header.code.response = code;
-    BOOL success = WriteFile(this->hPipe, (LPCVOID)&header, sizeof(header), &bytesWritten, NULL);
-    if (!success || sizeof(header) != bytesWritten) {
-        WRITELINE_DEBUG("Could not write to LunaJuice pipe: " << GetLastError());
-        // True here means close the connection
-        return TRUE;
-    }
-    return FALSE;
-}
-
-BOOL LunaConnection::SendPacket(LunaAPI::ResponseCode code, LPCVOID buffer, DWORD length) {
-    DWORD bytesWritten = 0;
-
-    LunaAPI::PacketHeader header;
-    header.length = length;
-    header.code.response = code;
-    BOOL success = WriteFile(this->hPipe, (LPCVOID)&header, sizeof(header), &bytesWritten, NULL);
-    if (!success || sizeof(header) != bytesWritten) {
-        WRITELINE_DEBUG("Could not write response code to LunaJuice pipe: " << GetLastError());
-        // True here means close the connection
-        return TRUE;
-    }
-    success = WriteFile(this->hPipe, buffer, length, &bytesWritten, NULL);
-    if (!success || length != bytesWritten) {
-        WRITELINE_DEBUG("Could not write data to LunaJuice pipe: " << GetLastError());
-        return TRUE;
-    }
-    return FALSE;
-}
-
-BOOL LunaConnection::SendData(LPCVOID buffer, DWORD length) {
-    DWORD bytesWritten = 0;
-
-    BOOL success = WriteFile(this->hPipe, buffer, length, &bytesWritten, NULL);
-    if (!success || length != bytesWritten) {
-        WRITELINE_DEBUG("Could not write data to LunaJuice pipe: " << GetLastError());
-        return TRUE;
-    }
-    return FALSE;
-}
-
-BOOL LunaConnection::RunCommand() {
+BOOL LunaServer::RunCommand() {
     LunaAPI::PacketHeader header = this->WaitForPacket();
 
     // Pass in handle and buffer to handler functions
@@ -247,7 +148,7 @@ BOOL LunaConnection::RunCommand() {
 }
 
 // Client connection flow
-BOOL LunaConnection::ServeConnection(LunaConnection* connection) {
+BOOL LunaServer::ServeConnection(LunaServer* connection) {
     // Don't lock here
     BOOL ret = TRUE;
     BOOL close = FALSE;
@@ -327,12 +228,12 @@ BOOL BeginServer(LPVOID lpParam) {
 
         if (connectSuccess) {
             WRITELINE_DEBUG("Handling client...");
-            LunaConnection* connection = new LunaConnection(hPipeRPC);
+            LunaServer* connection = new LunaServer(hPipeRPC);
             if (connection == NULL) {
                 WRITELINE_DEBUG("Could not allocate memory for new RPC connection.");
                 continue;
             }
-            HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)LunaConnection::ServeConnection, connection, 0, NULL);
+            HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)LunaServer::ServeConnection, connection, 0, NULL);
             CONNECTED_CLIENTS[hPipeRPC] = connection;
             if (hThread == NULL) {
                 WRITELINE_DEBUG("Could not create thread for RPC.");

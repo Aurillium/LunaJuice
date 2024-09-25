@@ -74,7 +74,7 @@ BOOL TestRPC(LunaAPI::LunaImplant implant) {
 
 	LunaAPI::HookID id;
 	RESP_CHECK(resp, implant.QueryByIdentifier("ntdll.dll!NtReadFile", &id));
-	DISP_LOG("Resolved hook ID: ", id);
+	DISP_LOG("Resolved hook ID: " << id);
 
 	RESP_CHECK(resp, implant.SetSecuritySettings(LunaAPI::Sec_BlockAll));
 	//RESP_CHECK(resp, implant.GetDefaultPolicy(&policy));
